@@ -1,6 +1,6 @@
 import datetime
 from db_func import flow_db
-
+import pandas as pd
 
 def get_current_date(format="%Y-%m-%d"):
     """
@@ -68,3 +68,30 @@ def update_dict_users(name: str, dict_users: list) -> list:
 
 def count_page(size_one_page, quantity_users) -> int:
     return (quantity_users // size_one_page) + 1
+
+
+def get_xlsx_table(conn, table_name):
+
+    # Write each table to a separate worksheet in the Excel file
+    with pd.ExcelWriter(f"{table_name}.xlsx") as writer:
+        df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
+        df.to_excel(writer, sheet_name=table_name, index=False)
+
+
+def write_excel_to_db(excel_file, conn):
+    # Read the data from the Excel file
+    with pd.ExcelFile(excel_file) as xlsx:
+        sheets = xlsx.sheet_names
+        dfs = {sheet: xlsx.parse(sheet) for sheet in sheets}
+
+    # Write each worksheet in the Excel file to a separate table in the database
+    for sheet_name, df in dfs.items():
+        df.to_sql(sheet_name, conn, if_exists="replace", index=False)
+
+
+def is_xlsx_extend(file_name: str):
+    return file_name.split('.')[1] == 'xlsx'
+
+def get_table_name():
+    table_names = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table'", flow_db.conn)
+    return table_names

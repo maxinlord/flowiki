@@ -70,6 +70,11 @@ class BotDB:
         )
         return self.conn.commit()
 
+    def create_new_connection(self):
+        new_conn = sqlite3.connect(self.db_file)
+        new_cur = new_conn.cursor()
+        return new_conn, new_cur
+
     def close(self, conn):
         conn.close()
 

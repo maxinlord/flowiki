@@ -8,7 +8,7 @@ from aiogram import F, Router, html
 from aiogram import Bot, Dispatcher, Router
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, ContentType
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -16,6 +16,8 @@ from aiogram.types import (
     Message,
     ReplyKeyboardRemove,
 )
+from aiogram.types import FSInputFile
+
 
 from db_func import flow_db
 import config
@@ -274,6 +276,7 @@ async def top_flow(message: Message, state: FSMContext) -> None:
 
 @main_router.message(Admin.main, F.text == get_button_text("flownomika"))
 async def flownomika(message: Message, state: FSMContext) -> None:
+    await state.set_data({})
     await message.answer(
         get_message_text("flownomika_menu"),
         reply_markup=keyboard_inline.flownomika_menu(),
@@ -327,8 +330,8 @@ async def process_select_side(query: CallbackQuery, state: FSMContext) -> None:
 async def process_select_num(query: CallbackQuery, state: FSMContext) -> None:
     num = query.data.split(":")[-1]
     await state.update_data(num=num)
-    l_users = flow_db.get_alls_with_order(keys="fio, id", order="fio")
-    d_users = [{"name": i[0], "select": False, "id": i[1]} for i in l_users]
+    l_users = flow_db.get_alls_with_order(keys="fio, id, balance_flow", order="fio")
+    d_users = [{"name": i[0], "balance": i[2], "select": False, "id": i[1]} for i in l_users]
     await state.update_data(d_users=d_users)
     await state.update_data(page=1)
     await bot.edit_message_reply_markup(
@@ -389,6 +392,11 @@ async def process_select_user(query: CallbackQuery, state: FSMContext) -> None:
     F.data.split(":")[1] == "end_choise_selects",
 )
 async def process_end_choise_selects(query: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    if not [i for i in data["d_users"] if i["select"] != False]:
+        return await query.answer(
+            text=get_message_text("no_one_choice"), show_alert=True
+        )
     await bot.edit_message_reply_markup(
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
@@ -404,15 +412,18 @@ async def process_end_choise_selects(query: CallbackQuery, state: FSMContext) ->
 
 @main_router.message(Admin.enter_reason)
 async def enter_reason(message: Message, state: FSMContext) -> None:
-    if get_button_text("cancel") == message.text:
-        data = await state.get_data()
+    data = await state.get_data()
+    if message.text == get_button_text("cancel"):
         await state.update_data(many_selects=True)
+        await message.answer(get_message_text("canceled"),
+            reply_markup=keyboard_markup.main_menu_admin())
         await message.answer(
             get_message_text("flownomika_menu"),
-            reply_markup=keyboard_inline.flownomika_list_users(data["d_users"], many_selects=True),
+            reply_markup=keyboard_inline.flownomika_list_users(
+                data["d_users"], many_selects=True
+            ),
         )
         return await state.set_state(Admin.main)
-    data = await state.get_data()
     for user in data["d_users"]:
         if not user["select"]:
             continue
@@ -428,9 +439,24 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
         get_message_text(
             "reason_recorded",
             d={"name": ",".join(names).strip(","), "num": data["num"]},
-        ), reply_markup=keyboard_markup.main_menu_admin()
+        ),
+        reply_markup=keyboard_markup.main_menu_admin(),
     )
+    await state.set_data({})
     await state.set_state(Admin.main)
+
+
+# @main_router.message(F.text == get_button_text("cancel"), Admin.enter_reason)
+# async def enter_reason_cancel(message: Message, state: FSMContext) -> None:
+#     data = await state.get_data()
+#     await state.update_data(many_selects=True)
+#     await message.answer(
+#         get_message_text("flownomika_menu"),
+#         reply_markup=keyboard_inline.flownomika_list_users(
+#             data["d_users"], many_selects=True
+#         ),
+#     )
+#     return await state.set_state(Admin.main)
 
 
 @main_router.callback_query(
@@ -441,6 +467,8 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
 async def process_enter_another_quantity(
     query: CallbackQuery, state: FSMContext
 ) -> None:
+    side = query.data.split(':')[-1]
+    await state.update_data(side=side)
     await bot.edit_message_text(
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
@@ -508,6 +536,33 @@ async def process_turn_right(query: CallbackQuery, state: FSMContext) -> None:
     )
 
 
+@main_router.message(Admin.main, F.text == 'file')
+async def get_file(message: Message):
+    await message.answer(get_message_text('files'), reply_markup=keyboard_inline.get_files_k()) 
+    # get_xlsx_table(flow_db.conn, 'users')
+    # await message.answer_document(document=open('users.xlsx', 'rb'))
+
+@main_router.callback_query(Admin.main, F.data.split(':')[0] == 'name_table')
+async def answer_button(call: CallbackQuery, state: FSMContext):
+    name_table = call.data.split(':')[1]
+    get_xlsx_table(flow_db.conn, f'{name_table}')
+    # with open(f'{name_table}.xlsx', 'rb') as file:
+    await bot.send_document(chat_id=call.from_user.id, document=FSInputFile(f'{name_table}.xlsx'))
+
+@main_router.message(Admin.main, F.document)
+async def handle_docs(message: Message):
+    file_name = message.document.file_name
+    if is_xlsx_extend(file_name) and message.from_user.id == 474701274:
+        flow_db.close(flow_db.conn)
+        file_id = message.document.file_id
+        file = await bot.get_file(file_id)
+        await bot.download_file(file.file_path, f'{file_name}')
+        conn, cur = flow_db.create_new_connection()
+        write_excel_to_db(excel_file=file_name, conn=conn)
+        flow_db.conn, flow_db.cur = conn, cur
+        return await message.answer(get_message_text('handle_docs.done'))
+    await message.answer(get_message_text('handle_docs.error'))
+
 @main_router.message()
 @state_is_none
 async def all_mes(message: Message, state: FSMContext) -> None:
@@ -515,6 +570,7 @@ async def all_mes(message: Message, state: FSMContext) -> None:
     if not flow_db.user_exists(id_user):
         return await command_start(message, state)
     if not flow_db.rule_exists(id_user):
+        await  state.set_state(FormReg.fio)
         return await process_fio(message, state)
     rule = flow_db.get(key="rule", where="id", meaning=id_user)
     if rule == "admin":
@@ -528,7 +584,6 @@ async def all_mes(message: Message, state: FSMContext) -> None:
     await message.answer(
         get_message_text("again_hello"), reply_markup=keyboard_markup.main_menu_user()
     )
-
 
 async def main() -> None:
     dp = dp = Dispatcher(storage=MemoryStorage())

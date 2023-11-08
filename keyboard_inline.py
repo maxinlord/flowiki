@@ -1,6 +1,6 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from own_utils import get_button_text
-
+from own_utils import get_button_text, get_table_name
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 def keyboard_for_rule(id_user):
     builder = InlineKeyboardBuilder()
@@ -82,7 +82,9 @@ def flownomika_list_users(
         if (size_one_page * page_num) - size_one_page <= num < size_one_page * page_num:
             emoji = "🔘" if user['select'] else ""
             builder.button(
-                text=get_button_text("pattern_line_button_user", d={"name": user['name'], 'emoji':emoji}),
+                text=get_button_text("pattern_line_button_user", d={"name": user['name'],
+                                                                    'emoji':emoji,
+                                                                    'balance': user['balance']}),
                 callback_data=f"action:select_user:{user['name']}:{user['select']}",
             )
             grid_size+=1
@@ -103,3 +105,12 @@ def flownomika_list_users(
     # len_users = q_users if q_users <= size_one_page else size_one_page + (q_users - size_one_page * page_num)
     builder.adjust(*[1 for _ in range(grid_size)], 1, 2)
     return builder.as_markup()
+
+def get_files_k():
+    table_names = get_table_name()
+    builder = InlineKeyboardBuilder()
+    for table in table_names['name']:  
+        builder.button(text=table, callback_data=f'name_table:{table}')
+    builder.adjust(1)
+    return builder.as_markup()
+
