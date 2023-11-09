@@ -1,6 +1,7 @@
 import asyncio
 import html
 import logging
+import os
 import sys
 from typing import Any, Dict
 
@@ -262,13 +263,14 @@ async def balance_flow(message: Message, state: FSMContext) -> None:
 @main_router.message(F.text == get_button_text("top"))
 async def top_flow(message: Message, state: FSMContext) -> None:
     raw_data = flow_db.get_alls_with_order(
-        keys="fio, balance_flow", order="balance_flow"
+        keys="fio, balance_flow, rule", order="balance_flow"
     )
     tops = [
         get_message_text(
             "pattern_line_top", d={"fio": i[0], "balance": i[1], "place": place}
         )
         for place, i in enumerate(raw_data, start=1)
+        if i[2] != 'admin'
     ]
     tops_text = "\n".join(tops)
     await message.answer(get_message_text("top_info", d={"list_top": tops_text}))
@@ -556,6 +558,7 @@ async def handle_docs(message: Message):
         flow_db.close(flow_db.conn)
         file_id = message.document.file_id
         file = await bot.get_file(file_id)
+        os.remove(f'{file_name}')
         await bot.download_file(file.file_path, f'{file_name}')
         conn, cur = flow_db.create_new_connection()
         write_excel_to_db(excel_file=file_name, conn=conn)

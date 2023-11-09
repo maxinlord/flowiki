@@ -1,7 +1,6 @@
 
-config.py
-venv
-*.xlsx
+
+
 
 # Prerequisites
 *.d
@@ -35,4 +34,8 @@ venv
 *.exe
 *.out
 *.app
+*.xlsx
 
+config.py
+venv
+tempCodeRunnerFile.py
