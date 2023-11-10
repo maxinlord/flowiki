@@ -36,6 +36,8 @@
 *.app
 *.xlsx
 
-config.py
+/config.py
 venv
-tempCodeRunnerFile.py
+/db_func.py
+/__pycache__
+/tempCodeRunnerFile.py
