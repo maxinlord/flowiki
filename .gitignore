@@ -38,8 +38,6 @@
 
 /config.py
 venv
-/db_func.py
 /__pycache__
 /tempCodeRunnerFile.py
 
-*.db
