@@ -7,7 +7,7 @@ class BotDB:
         self.conn = sqlite3.connect(db_file)
         self.cur = self.conn.cursor()
 
-    def user_exists(self, id_user: int | str):
+    def user_exists(self, id_user):
 
         result = self.cur.execute("SELECT `id` \
                                   FROM `users` \
@@ -34,12 +34,12 @@ class BotDB:
                          (`name`) VALUES (?)", (name,))
         return self.conn.commit()
     
-    def add_user(self, id_user: int | str):  # Добавляем юзера в базу
+    def add_user(self, id_user):  # Добавляем юзера в базу
         self.cur.execute("INSERT INTO `users` \
                          (`id`) VALUES (?)", (id_user,))
         return self.conn.commit()
 
-    def add_value(self, key: str, where: str, meaning: str, table: str = 'users', value: str | int | float = 0):
+    def add_value(self, key: str, where: str, meaning: str, table: str = 'users', value: str = 0):
 
         result = self.cur.execute(f"SELECT {key}\
                                     FROM {table}\
@@ -56,7 +56,7 @@ class BotDB:
                                     WHERE {where} = ?", (meaning,))
         return result.fetchone()[0]
     
-    def update_value(self, key: str, where: str, meaning: str, table: str = 'users', value: str | int | float = ''):
+    def update_value(self, key: str, where: str, meaning: str, table: str = 'users', value: str = ''):
         self.cur.execute(f'UPDATE {table} \
                            SET {key} = "{value}" \
                            WHERE {where} = ?', (meaning,))
