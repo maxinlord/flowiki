@@ -140,6 +140,7 @@ async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> N
         value=get_current_date("%Y-%m-%d, %H:%M:%S"),
     )
     flow_db.update_value(key="rule", where="id", meaning=id_user, value="user")
+    flow_db.update_value(key="balance_flow", where="id", meaning=id_user, value=0)
     await state.clear()
     await bot.edit_message_text(
         chat_id=id_user,
