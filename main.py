@@ -99,16 +99,16 @@ async def process_confirm_reg_admin(query: CallbackQuery, state: FSMContext) -> 
     data = await state.get_data()
     flow_db.add_user(id_user)
     flow_db.update_value(
-        key="username", where="id", meaning=id_user, data=f"@{query.from_user.username}"
+        key="username", where="id", meaning=id_user, value=f"@{query.from_user.username}"
     )
-    flow_db.update_value(key="fio", where="id", meaning=id_user, data=data["fio"].strip())
+    flow_db.update_value(key="fio", where="id", meaning=id_user, value=data["fio"].strip())
     flow_db.update_value(
         key="date_reg",
         where="id",
         meaning=id_user,
-        data=get_current_date("%Y-%m-%d, %H:%M:%S"),
+        value=get_current_date("%Y-%m-%d, %H:%M:%S"),
     )
-    flow_db.update_value(key="rule", where="id", meaning=id_user, data="admin")
+    flow_db.update_value(key="rule", where="id", meaning=id_user, value="admin")
     await state.set_state(Admin.main)
     await bot.edit_message_text(
         chat_id=id_user,
@@ -130,16 +130,16 @@ async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> N
     data = await state.get_data()
     flow_db.add_user(id_user)
     flow_db.update_value(
-        key="username", where="id", meaning=id_user, data=f"@{query.from_user.username}"
+        key="username", where="id", meaning=id_user, value=f"@{query.from_user.username}"
     )
-    flow_db.update_value(key="fio", where="id", meaning=id_user, data=data["fio"].strip())
+    flow_db.update_value(key="fio", where="id", meaning=id_user, value=data["fio"].strip())
     flow_db.update_value(
         key="date_reg",
         where="id",
         meaning=id_user,
-        data=get_current_date("%Y-%m-%d, %H:%M:%S"),
+        value=get_current_date("%Y-%m-%d, %H:%M:%S"),
     )
-    flow_db.update_value(key="rule", where="id", meaning=id_user, data="user")
+    flow_db.update_value(key="rule", where="id", meaning=id_user, value="user")
     await state.clear()
     await bot.edit_message_text(
         chat_id=id_user,
@@ -205,9 +205,9 @@ async def process_answer_on_request_ban(
         key="username",
         where="id",
         meaning=id_user_to_ban,
-        data=f"@{query.from_user.username}",
+        value=f"@{query.from_user.username}",
     )
-    flow_db.update_value(key="rule", where="id", meaning=id_user_to_ban, data="ban")
+    flow_db.update_value(key="rule", where="id", meaning=id_user_to_ban, value="ban")
     await bot.send_message(
         chat_id=id_user_to_ban,
         text=get_text("ban"),
