@@ -103,7 +103,7 @@ def get_data_users():
 
 
 def wrap(
-    num: int | float,
+    num: int,
     q_signs_after_comma: int = 2,
     is_persent: bool = False,
     format: str = "code",
