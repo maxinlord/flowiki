@@ -341,7 +341,21 @@ async def balance_flow(message: Message, state: FSMContext) -> None:
         key="balance_flow", where="id", meaning=message.from_user.id
     )
     await message.answer(
-        get_text("balance_info", throw_data={"flowiki": quantity_flow})
+        text=get_text("balance_info", throw_data={"flowiki": wrap(quantity_flow)}),
+        reply_markup=keyboard_inline.for_what(),
+    )
+
+
+@form_router.callback_query(
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[2] == "for_what",
+)
+async def for_what(query: CallbackQuery, state: FSMContext) -> None:
+    await bot.edit_message_text(
+        chat_id=query.from_user.id,
+        text=get_text("for_what"),
+        message_id=query.message.message_id,
+        reply_markup=None,
     )
 
 
@@ -384,7 +398,15 @@ async def hand_reg(message: Message, state: FSMContext) -> None:
     await state.set_state(FormReg.hand_reg)
     await message.answer(
         get_text("enter_fio_user"),
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=keyboard_markup.cancel(),
+    )
+
+
+@main_router.message(FormReg.hand_reg, F.text == get_button("cancel"))
+async def process_create_user_cancel(message: Message, state: FSMContext) -> None:
+    await state.set_state(Admin.main)
+    await message.answer(
+        get_text("user_create_cancel"), reply_markup=keyboard_markup.main_menu_admin()
     )
 
 
@@ -405,7 +427,9 @@ async def process_create_user(message: Message, state: FSMContext) -> None:
     flow_db.update_value(key="rule", where="id", meaning=id_user, value="user")
     flow_db.update_value(key="balance_flow", where="id", meaning=id_user, value=0)
     await state.set_state(Admin.main)
-    await message.answer(get_text("user_created"), reply_markup=keyboard_markup.main_menu_admin())
+    await message.answer(
+        get_text("user_created"), reply_markup=keyboard_markup.main_menu_admin()
+    )
 
 
 @main_router.message(F.text == get_button("history_transfer"))
@@ -535,21 +559,25 @@ async def process_end_choise_selects(query: CallbackQuery, state: FSMContext) ->
     await state.set_state(Admin.enter_reason)
 
 
+@main_router.message(Admin.enter_reason, F.text == get_button("cancel"))
+async def enter_reason_cancel(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await state.update_data(many_selects=True)
+    await message.answer(
+        get_text("canceled"), reply_markup=keyboard_markup.main_menu_admin()
+    )
+    await message.answer(
+        get_text("flownomika_menu"),
+        reply_markup=keyboard_inline.flownomika_list_users(
+            data["d_users"], many_selects=True, page_num=data["page"]
+        ),
+    )
+    return await state.set_state(Admin.main)
+
+
 @main_router.message(Admin.enter_reason)
 async def enter_reason(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
-    if message.text == get_button("cancel"):
-        await state.update_data(many_selects=True)
-        await message.answer(
-            get_text("canceled"), reply_markup=keyboard_markup.main_menu_admin()
-        )
-        await message.answer(
-            get_text("flownomika_menu"),
-            reply_markup=keyboard_inline.flownomika_list_users(
-                data["d_users"], many_selects=True
-            ),
-        )
-        return await state.set_state(Admin.main)
     for user in data["d_users"]:
         if not user["select"]:
             continue
@@ -570,19 +598,6 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
     )
     await state.set_data({})
     await state.set_state(Admin.main)
-
-
-# @main_router.message(F.text == get_button("cancel"), Admin.enter_reason)
-# async def enter_reason_cancel(message: Message, state: FSMContext) -> None:
-#     data = await state.get_data()
-#     await state.update_data(many_selects=True)
-#     await message.answer(
-#         get_text("flownomika_menu"),
-#         reply_markup=keyboard_inline.flownomika_list_users(
-#             data["d_users"], many_selects=True
-#         ),
-#     )
-#     return await state.set_state(Admin.main)
 
 
 @main_router.callback_query(

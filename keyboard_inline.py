@@ -124,3 +124,9 @@ def get_files_k():
     builder.adjust(1)
     return builder.as_markup()
 
+def for_what():
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=get_button("for_what"), callback_data="action:ask:for_what"
+    )
+    return builder.as_markup()
