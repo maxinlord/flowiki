@@ -36,12 +36,17 @@ main_router = Router()
 class FormReg(StatesGroup):
     fio = State()
     pending_review = State()
+    hand_reg = State()
 
 
 class Admin(StatesGroup):
     main = State()
     enter_reason = State()
     enter_another_quantity = State()
+
+
+class Viewer(StatesGroup):
+    main = State()
 
 
 class Ban(StatesGroup):
@@ -78,14 +83,23 @@ async def command_start(message: Message, state: FSMContext) -> None:
 async def process_fio(message: Message, state: FSMContext) -> None:
     id_user = message.from_user.id
     photo = await message.from_user.get_profile_photos()
-    photo_id = photo.photos[0][0].file_id
-    await bot.send_photo(
-        chat_id=config.CHAT_ID,
-        message_thread_id=config.THREAD_ID_PENDING_REVIEW,
-        photo=photo_id,
-        caption=get_text("request", throw_data={"fio": message.text}),
-        reply_markup=keyboard_inline.keyboard_for_rule(id_user),
-    )
+    try:
+        photo_id = photo.photos[0][0].file_id
+    except:
+        photo_id = flow_db.get_value(
+            key="box",
+            where="name",
+            meaning="photo_id_for_no_exists_photo",
+            table="values",
+        )
+    finally:
+        await bot.send_photo(
+            chat_id=config.CHAT_ID,
+            message_thread_id=config.THREAD_ID_PENDING_REVIEW,
+            photo=photo_id,
+            caption=get_text("request", throw_data={"fio": message.text}),
+            reply_markup=keyboard_inline.keyboard_for_rule(id_user),
+        )
     await state.update_data(fio=message.text)
     await state.set_state(FormReg.pending_review)
     await message.answer(get_text("pending_wait"))
@@ -99,9 +113,14 @@ async def process_confirm_reg_admin(query: CallbackQuery, state: FSMContext) -> 
     data = await state.get_data()
     flow_db.add_user(id_user)
     flow_db.update_value(
-        key="username", where="id", meaning=id_user, value=f"@{query.from_user.username}"
+        key="username",
+        where="id",
+        meaning=id_user,
+        value=f"@{query.from_user.username}",
     )
-    flow_db.update_value(key="fio", where="id", meaning=id_user, value=data["fio"].strip())
+    flow_db.update_value(
+        key="fio", where="id", meaning=id_user, value=data["fio"].strip()
+    )
     flow_db.update_value(
         key="date_reg",
         where="id",
@@ -109,6 +128,7 @@ async def process_confirm_reg_admin(query: CallbackQuery, state: FSMContext) -> 
         value=get_current_date("%Y-%m-%d, %H:%M:%S"),
     )
     flow_db.update_value(key="rule", where="id", meaning=id_user, value="admin")
+    flow_db.update_value(key="balance_flow", where="id", meaning=id_user, value=0)
     await state.set_state(Admin.main)
     await bot.edit_message_text(
         chat_id=id_user,
@@ -130,9 +150,14 @@ async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> N
     data = await state.get_data()
     flow_db.add_user(id_user)
     flow_db.update_value(
-        key="username", where="id", meaning=id_user, value=f"@{query.from_user.username}"
+        key="username",
+        where="id",
+        meaning=id_user,
+        value=f"@{query.from_user.username}",
     )
-    flow_db.update_value(key="fio", where="id", meaning=id_user, value=data["fio"].strip())
+    flow_db.update_value(
+        key="fio", where="id", meaning=id_user, value=data["fio"].strip()
+    )
     flow_db.update_value(
         key="date_reg",
         where="id",
@@ -151,6 +176,43 @@ async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> N
         chat_id=query.from_user.id,
         text=get_text("congratulation_reg_user"),
         reply_markup=keyboard_markup.main_menu_user(),
+    )
+
+
+@form_router.callback_query(
+    FormReg.pending_review, F.data.split(":") == ["action", "confirm_reg", "viewer"]
+)
+async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> None:
+    id_user = query.from_user.id
+    data = await state.get_data()
+    flow_db.add_user(id_user)
+    flow_db.update_value(
+        key="username",
+        where="id",
+        meaning=id_user,
+        value=f"@{query.from_user.username}",
+    )
+    flow_db.update_value(
+        key="fio", where="id", meaning=id_user, value=data["fio"].strip()
+    )
+    flow_db.update_value(
+        key="date_reg",
+        where="id",
+        meaning=id_user,
+        value=get_current_date("%Y-%m-%d, %H:%M:%S"),
+    )
+    flow_db.update_value(key="rule", where="id", meaning=id_user, value="viewer")
+    flow_db.update_value(key="balance_flow", where="id", meaning=id_user, value=0)
+    await state.set_state(Viewer.main)
+    await bot.edit_message_text(
+        chat_id=id_user,
+        message_id=query.message.message_id,
+        text=get_text("registered"),
+    )
+    await bot.send_message(
+        chat_id=query.from_user.id,
+        text=get_text("congratulation_reg_viewer"),
+        reply_markup=None,
     )
 
 
@@ -190,6 +252,26 @@ async def process_answer_on_request_user(
         chat_id=config.CHAT_ID,
         message_id=query.message.message_id,
         caption=get_text("answer_on_request_user", throw_data={"text": old_caption}),
+        reply_markup=None,
+    )
+
+
+@form_router.callback_query(
+    F.data.split(":")[0] == "rule", F.data.split(":")[1] == "viewer"
+)
+async def process_answer_on_request_user(
+    query: CallbackQuery, state: FSMContext
+) -> None:
+    await bot.send_message(
+        chat_id=query.data.split(":")[2],
+        text=get_text("you_viewer"),
+        reply_markup=keyboard_inline.confirm_reg_viewer(),
+    )
+    old_caption = query.message.caption
+    await bot.edit_message_caption(
+        chat_id=config.CHAT_ID,
+        message_id=query.message.message_id,
+        caption=get_text("answer_on_request_viewer", throw_data={"text": old_caption}),
         reply_markup=None,
     )
 
@@ -258,7 +340,9 @@ async def balance_flow(message: Message, state: FSMContext) -> None:
     quantity_flow = flow_db.get_value(
         key="balance_flow", where="id", meaning=message.from_user.id
     )
-    await message.answer(get_text("balance_info", throw_data={"flowiki": quantity_flow}))
+    await message.answer(
+        get_text("balance_info", throw_data={"flowiki": quantity_flow})
+    )
 
 
 @main_router.message(F.text == get_button("top"))
@@ -268,10 +352,19 @@ async def top_flow(message: Message, state: FSMContext) -> None:
     )
     place, tops = 1, []
     for i in raw_data:
-        if i['rule'] == 'admin':
+        if i["rule"] == "admin":
             continue
-        tops.append(get_text("pattern_line_top", throw_data={"fio": i['fio'], "balance": i['balance_flow'], "place": place}))
-        place +=1
+        tops.append(
+            get_text(
+                "pattern_line_top",
+                throw_data={
+                    "fio": i["fio"],
+                    "balance": wrap(i["balance_flow"]),
+                    "place": place,
+                },
+            )
+        )
+        place += 1
     tops_text = "\n".join(tops)
     await message.answer(get_text("top_info", throw_data={"list_top": tops_text}))
 
@@ -285,6 +378,36 @@ async def flownomika(message: Message, state: FSMContext) -> None:
     )
 
 
+@main_router.message(Admin.main, F.text == get_button("hand_reg"))
+async def hand_reg(message: Message, state: FSMContext) -> None:
+    id_user = message.from_user.id
+    await state.set_state(FormReg.hand_reg)
+    await message.answer(
+        get_text("enter_fio_user"),
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
+@main_router.message(FormReg.hand_reg)
+async def process_create_user(message: Message, state: FSMContext) -> None:
+    id_user = create_custom_id()
+    flow_db.add_user(id_user)
+    flow_db.update_value(key="username", where="id", meaning=id_user, value=f"@None")
+    flow_db.update_value(
+        key="fio", where="id", meaning=id_user, value=message.text.strip()
+    )
+    flow_db.update_value(
+        key="date_reg",
+        where="id",
+        meaning=id_user,
+        value=get_current_date("%Y-%m-%d, %H:%M:%S"),
+    )
+    flow_db.update_value(key="rule", where="id", meaning=id_user, value="user")
+    flow_db.update_value(key="balance_flow", where="id", meaning=id_user, value=0)
+    await state.set_state(Admin.main)
+    await message.answer(get_text("user_created"), reply_markup=keyboard_markup.main_menu_admin())
+
+
 @main_router.message(F.text == get_button("history_transfer"))
 async def history_transfer(message: Message, state: FSMContext) -> None:
     raw_data = flow_db.get_all_line_key(
@@ -292,20 +415,23 @@ async def history_transfer(message: Message, state: FSMContext) -> None:
         order="date",
         table="history_reasons",
     )
+    raw_data = [i for i in raw_data if i["id"] == str(message.from_user.id)]
     if not raw_data:
         return await message.answer(get_text("history_not_exists"))
     historys = [
         get_text(
             "pattern_line_history_transfer",
             throw_data={
-                "date": i['date'],
-                "num": i['num'],
-                "reason": i['reason'],
-                "owner_reason": flow_db.get_value(key="fio", where="id", meaning=i['owner_reason']),
+                "date": i["date"],
+                "num": i["num"],
+                "reason": i["reason"],
+                "owner_reason": flow_db.get_value(
+                    key="fio", where="id", meaning=i["owner_reason"]
+                ),
             },
         )
         for i in raw_data
-        if i['id'] == str(message.from_user.id)
+        if i["id"] == str(message.from_user.id)
     ]
     history_text = "\n".join(historys)
     await message.answer(
@@ -331,7 +457,7 @@ async def process_select_side(query: CallbackQuery, state: FSMContext) -> None:
 )
 async def process_select_num(query: CallbackQuery, state: FSMContext) -> None:
     num = query.data.split(":")[-1]
-    await state.update_data(num=num)
+    await state.update_data(num=num, many_selects=False)
     d_users = get_data_users()
     await state.update_data(d_users=d_users)
     await state.update_data(page=1)
@@ -395,9 +521,7 @@ async def process_select_user(query: CallbackQuery, state: FSMContext) -> None:
 async def process_end_choise_selects(query: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     if not [i for i in data["d_users"] if i["select"] != False]:
-        return await query.answer(
-            text=get_text("no_one_choice"), show_alert=True
-        )
+        return await query.answer(text=get_text("no_one_choice"), show_alert=True)
     await bot.edit_message_reply_markup(
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
@@ -416,8 +540,9 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     if message.text == get_button("cancel"):
         await state.update_data(many_selects=True)
-        await message.answer(get_text("canceled"),
-            reply_markup=keyboard_markup.main_menu_admin())
+        await message.answer(
+            get_text("canceled"), reply_markup=keyboard_markup.main_menu_admin()
+        )
         await message.answer(
             get_text("flownomika_menu"),
             reply_markup=keyboard_inline.flownomika_list_users(
@@ -468,7 +593,7 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
 async def process_enter_another_quantity(
     query: CallbackQuery, state: FSMContext
 ) -> None:
-    side = query.data.split(':')[-1]
+    side = query.data.split(":")[-1]
     await state.update_data(side=side)
     await bot.edit_message_text(
         chat_id=query.from_user.id,
@@ -511,7 +636,7 @@ async def process_turn_left(query: CallbackQuery, state: FSMContext) -> None:
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
         reply_markup=keyboard_inline.flownomika_list_users(
-            list_users=data["d_users"], many_selects=True, page_num=page
+            list_users=data["d_users"], many_selects=data["many_selects"], page_num=page
         ),
     )
 
@@ -531,23 +656,32 @@ async def process_turn_right(query: CallbackQuery, state: FSMContext) -> None:
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
         reply_markup=keyboard_inline.flownomika_list_users(
-            list_users=data["d_users"], many_selects=True, page_num=page
+            list_users=data["d_users"], many_selects=data["many_selects"], page_num=page
         ),
     )
 
 
-@main_router.message(Admin.main, F.text == 'file')
+@main_router.message(Admin.main, F.text == "file")
 async def get_file(message: Message):
-    await message.answer(get_text('files'), reply_markup=keyboard_inline.get_files_k()) 
+    await message.answer(get_text("files"), reply_markup=keyboard_inline.get_files_k())
     # get_xlsx_table(flow_db.conn, 'users')
     # await message.answer_document(document=open('users.xlsx', 'rb'))
 
-@main_router.callback_query(Admin.main, F.data.split(':')[0] == 'name_table')
+
+@main_router.callback_query(Admin.main, F.data.split(":")[0] == "name_table")
 async def answer_button(call: CallbackQuery, state: FSMContext):
-    name_table = call.data.split(':')[1]
-    get_xlsx_table(flow_db.conn, f'{name_table}')
+    name_table = call.data.split(":")[1]
+    get_xlsx_table(flow_db.conn, f"{name_table}")
     # with open(f'{name_table}.xlsx', 'rb') as file:
-    await bot.send_document(chat_id=call.from_user.id, document=FSInputFile(f'{name_table}.xlsx'))
+    await bot.send_document(
+        chat_id=call.from_user.id, document=FSInputFile(f"{name_table}.xlsx")
+    )
+
+
+@main_router.message(Admin.main, F.photo)
+async def handle_photo(message: Message):
+    await message.answer(message.photo[-1].file_id)
+
 
 @main_router.message(Admin.main, F.document)
 async def handle_docs(message: Message):
@@ -556,13 +690,19 @@ async def handle_docs(message: Message):
         flow_db.close(flow_db.conn)
         file_id = message.document.file_id
         file = await bot.get_file(file_id)
-        os.remove(f'{file_name}')
-        await bot.download_file(file.file_path, f'{file_name}')
+        os.remove(f"{file_name}")
+        await bot.download_file(file.file_path, f"{file_name}")
         conn, cur = flow_db.create_new_connection()
         write_excel_to_db(excel_file=file_name, conn=conn)
         flow_db.conn, flow_db.cur = conn, cur
-        return await message.answer(get_text('handle_docs.done'))
-    await message.answer(get_text('handle_docs.error'))
+        return await message.answer(get_text("handle_docs.done"))
+    await message.answer(get_text("handle_docs.error"))
+
+
+# @main_router.message(Command("update"))
+# async def update(message: Message, state: FSMContext) -> None:
+#     await all_mes(message, state)
+
 
 @main_router.message()
 @state_is_none
@@ -571,7 +711,7 @@ async def all_mes(message: Message, state: FSMContext) -> None:
     if not flow_db.user_exists(id_user):
         return await command_start(message, state)
     if not flow_db.rule_exists(id_user):
-        await  state.set_state(FormReg.fio)
+        await state.set_state(FormReg.fio)
         return await process_fio(message, state)
     rule = flow_db.get_value(key="rule", where="id", meaning=id_user)
     if rule == "admin":
@@ -585,6 +725,7 @@ async def all_mes(message: Message, state: FSMContext) -> None:
     await message.answer(
         get_text("again_hello"), reply_markup=keyboard_markup.main_menu_user()
     )
+
 
 async def main() -> None:
     dp = dp = Dispatcher(storage=MemoryStorage())

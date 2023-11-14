@@ -17,7 +17,8 @@ def main_menu_admin():
     builder = ReplyKeyboardBuilder()
     builder.button(text=get_button("flownomika"))
     builder.button(text=get_button("top"))
-    builder.adjust(2)
+    builder.button(text=get_button("hand_reg"))
+    builder.adjust(2, 1)
     return builder.as_markup(
         resize_keyboard=True, input_field_placeholder="Бог тебя любит ♡"
     )

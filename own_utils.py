@@ -1,4 +1,6 @@
 import datetime
+import random
+import string
 from db_func import flow_db
 import pandas as pd
 
@@ -40,7 +42,9 @@ def get_text(name: str, throw_data: dict = None) -> str:
         table="values",
     )
     try:
-        text = flow_db.get_value(key="text", where="name", meaning=name, table="message_texts")
+        text = flow_db.get_value(
+            key="text", where="name", meaning=name, table="message_texts"
+        )
     except:
         flow_db.add_new_text(name=name)
         text = "created now"
@@ -90,5 +94,37 @@ def get_table_name():
 
 def get_data_users():
     l_users = flow_db.get_all_line_key(key="rule, fio, id, balance_flow", order="fio")
-    d_users = [{"name": i['fio'], "balance": i['balance_flow'], "select": False, "id": i['id']} for i in l_users if i['rule'] != 'admin']
+    d_users = [
+        {"name": i["fio"], "balance": i["balance_flow"], "select": False, "id": i["id"]}
+        for i in l_users
+        if i["rule"] != "admin"
+    ]
     return d_users
+
+
+def wrap(
+    num: int | float,
+    q_signs_after_comma: int = 2,
+    is_persent: bool = False,
+    format: str = "code",
+    add_sign: str = '',
+) -> str:
+    if is_persent:
+        add_sign = "%"
+        num *= 100
+    num = round(num, q_signs_after_comma)
+    if float(num) % 1 != 0:
+        return "<{format}>{:,.{}f}</{format}>{add_sign}".format(
+            float(num), q_signs_after_comma, format=format, add_sign=add_sign
+        )
+    return "<{format}>{:,}</{format}>{add_sign}".format(
+        int(num), format=format, add_sign=add_sign
+    )
+
+def create_custom_id(len_tag: int = 8):
+    tag = ''
+    signs = string.digits + string.ascii_letters
+    for _ in range(len_tag):
+        sign = random.choice(signs)
+        tag += sign
+    return f'custom:{tag}'

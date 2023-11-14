@@ -6,13 +6,14 @@ def keyboard_for_rule(id_user):
     builder = InlineKeyboardBuilder()
 
     builder.button(text=get_button("admin"), callback_data=f"rule:admin:{id_user}")
-    builder.button(text=get_button("ban"), callback_data=f"rule:ban:{id_user}")
     builder.button(text=get_button("user"), callback_data=f"rule:user:{id_user}")
+    builder.button(text=get_button("viewer"), callback_data=f"rule:viewer:{id_user}")
+    builder.button(text=get_button("ban"), callback_data=f"rule:ban:{id_user}")
     builder.button(
         text=get_button("repeat_fio"), callback_data=f"action:repeat_fio:{id_user}"
     )
 
-    builder.adjust(2, 1, 1)
+    builder.adjust(3, 2)
     return builder.as_markup()
 
 
@@ -32,6 +33,15 @@ def confirm_reg_user():
         text=get_button("end_reg"), callback_data="action:confirm_reg:user"
     )
     return builder.as_markup()
+
+def confirm_reg_viewer():
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text=get_button("end_reg"), callback_data="action:confirm_reg:viewer"
+    )
+    return builder.as_markup()
+
 
 
 def confirm_reg_admin():
