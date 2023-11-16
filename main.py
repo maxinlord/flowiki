@@ -705,7 +705,10 @@ async def handle_docs(message: Message):
         flow_db.close(flow_db.conn)
         file_id = message.document.file_id
         file = await bot.get_file(file_id)
-        os.remove(f"{file_name}")
+        try:
+            os.remove(f"{file_name}")
+        except:
+            pass
         await bot.download_file(file.file_path, f"{file_name}")
         conn, cur = flow_db.create_new_connection()
         write_excel_to_db(excel_file=file_name, conn=conn)
