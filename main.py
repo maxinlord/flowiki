@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 from typing import Any, Dict
-
+from aiogram.fsm.storage.base import BaseStorage
 from aiogram import F, Router, html
 from aiogram import Bot, Dispatcher, Router
 from aiogram.enums import ParseMode
@@ -383,15 +383,6 @@ async def top_flow(message: Message, state: FSMContext) -> None:
     await message.answer(get_text("top_info", throw_data={"list_top": tops_text}))
 
 
-@main_router.message(Admin.main, F.text == get_button("flownomika"))
-async def flownomika(message: Message, state: FSMContext) -> None:
-    await state.set_data({})
-    await message.answer(
-        get_text("flownomika_menu"),
-        reply_markup=keyboard_inline.flownomika_menu(),
-    )
-
-
 @main_router.message(Admin.main, F.text == get_button("hand_reg"))
 async def hand_reg(message: Message, state: FSMContext) -> None:
     id_user = message.from_user.id
@@ -463,13 +454,39 @@ async def history_transfer(message: Message, state: FSMContext) -> None:
     )
 
 
+@main_router.message(Admin.main, F.text == get_button("flownomika"))
+async def flownomika(message: Message, state: FSMContext) -> None:
+    await state.update_data(
+        side="+", num=None, is_many_selects=False, d_users=None, page=1
+    )
+    await message.answer(
+        get_text(
+            "flownomika_menu_1",
+            throw_data={
+                "side": "Начисление",
+                "num": "Не указано",
+                "l_users": "Не указано",
+            },
+        ),
+        reply_markup=keyboard_inline.flownomika_menu(),
+    )
+
+
 @main_router.callback_query(
-    Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "select"
+    Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "select_side"
 )
 async def process_select_side(query: CallbackQuery, state: FSMContext) -> None:
     side = query.data.split(":")[-1]
     await state.update_data(side=side)
-    await bot.edit_message_reply_markup(
+    await bot.edit_message_text(
+        text=get_text(
+            "flownomika_menu_1",
+            throw_data={
+                "side": "Начисление" if side == "+" else "Штраф",
+                "num": "Не указано",
+                "l_users": "Не указано",
+            },
+        ),
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
         reply_markup=keyboard_inline.flownomika_menu(side),
@@ -477,15 +494,67 @@ async def process_select_side(query: CallbackQuery, state: FSMContext) -> None:
 
 
 @main_router.callback_query(
-    Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "num"
+    Admin.main,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1] == "enter_another_quantity",
+)
+async def process_enter_another_quantity(
+    query: CallbackQuery, state: FSMContext
+) -> None:
+    side = query.data.split(":")[-1]
+    await state.update_data(side=side)
+    await bot.edit_message_text(
+        chat_id=query.from_user.id,
+        message_id=query.message.message_id,
+        text=get_text("enter_another_quantity"),
+        reply_markup=None,
+    )
+    await state.set_state(Admin.enter_another_quantity)
+
+
+@main_router.message(Admin.enter_another_quantity)
+async def enter_another_quantity(message: Message, state: FSMContext) -> None:
+    if not message.text.isnumeric():
+        return
+    data = await state.get_data()
+    side = data["side"]
+    d_users = get_data_users()
+    await state.update_data(num=f"{side}{message.text}", d_users=d_users)
+    await message.answer(
+        get_text(
+            "flownomika_menu_2",
+            throw_data={
+                "side": "Начисление" if side == "+" else "Штраф",
+                "num": f"{side}{message.text}",
+                "l_users": "Не указано",
+                "cpage": wrap(1),
+                "allpage": wrap(count_page(5, len(d_users))),
+            },
+        ),
+        reply_markup=keyboard_inline.flownomika_list_users(d_users),
+    )
+    await state.set_state(Admin.main)
+
+
+@main_router.callback_query(
+    Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "select_num"
 )
 async def process_select_num(query: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
     num = query.data.split(":")[-1]
-    await state.update_data(num=num, many_selects=False)
     d_users = get_data_users()
-    await state.update_data(d_users=d_users)
-    await state.update_data(page=1)
-    await bot.edit_message_reply_markup(
+    await state.update_data(num=num, d_users=d_users)
+    await bot.edit_message_text(
+        text=get_text(
+            "flownomika_menu_2",
+            throw_data={
+                "side": "Начисление" if data["side"] == "+" else "Штраф",
+                "num": num,
+                "l_users": "Не указано",
+                "cpage": wrap(1),
+                "allpage": wrap(count_page(5, len(d_users))),
+            },
+        ),
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
         reply_markup=keyboard_inline.flownomika_list_users(d_users),
@@ -493,16 +562,80 @@ async def process_select_num(query: CallbackQuery, state: FSMContext) -> None:
 
 
 @main_router.callback_query(
+    Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "turn_left"
+)
+async def process_turn_left(query: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    q_page = count_page(5, len(data["d_users"]))
+    if q_page == 1:
+        return
+    page = int(query.data.split(":")[-1])
+    page = page - 1 if page > 1 else q_page
+    await state.update_data(page=page)
+    await bot.edit_message_text(
+        text=get_text(
+            "flownomika_menu_2",
+            throw_data={
+                "side": "Начисление" if data["side"] == "+" else "Штраф",
+                "num": data["num"],
+                "l_users": view_selected_users(data["d_users"]),
+                "cpage": wrap(page),
+                "allpage": wrap(q_page),
+            },
+        ),
+        chat_id=query.from_user.id,
+        message_id=query.message.message_id,
+        reply_markup=keyboard_inline.flownomika_list_users(
+            list_users=data["d_users"],
+            is_many_selects=data["is_many_selects"],
+            page_num=page,
+        ),
+    )
+
+
+@main_router.callback_query(
+    Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "turn_right"
+)
+async def process_turn_right(query: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    q_page = count_page(5, len(data["d_users"]))
+    if q_page == 1:
+        return
+    page = int(query.data.split(":")[-1])
+    page = page + 1 if page < q_page else 1
+    await state.update_data(page=page)
+    await bot.edit_message_text(
+        text=get_text(
+            "flownomika_menu_2",
+            throw_data={
+                "side": "Начисление" if data["side"] == "+" else "Штраф",
+                "num": data["num"],
+                "l_users": view_selected_users(data["d_users"]),
+                "cpage": wrap(page),
+                "allpage": wrap(q_page),
+            },
+        ),
+        chat_id=query.from_user.id,
+        message_id=query.message.message_id,
+        reply_markup=keyboard_inline.flownomika_list_users(
+            list_users=data["d_users"],
+            is_many_selects=data["is_many_selects"],
+            page_num=page,
+        ),
+    )
+
+
+@main_router.callback_query(
     Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "many_selects"
 )
-async def process_select_num(query: CallbackQuery, state: FSMContext) -> None:
-    await state.update_data(many_selects=True)
+async def process_many_selects(query: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
+    await state.update_data(is_many_selects=True)
     await bot.edit_message_reply_markup(
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
         reply_markup=keyboard_inline.flownomika_list_users(
-            list_users=data["d_users"], many_selects=True, page_num=data["page"]
+            list_users=data["d_users"], is_many_selects=True, page_num=data["page"]
         ),
     )
 
@@ -512,29 +645,54 @@ async def process_select_num(query: CallbackQuery, state: FSMContext) -> None:
 )
 async def process_select_user(query: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
-    name = query.data.split(":")[2]
-    d_users = update_dict_users(name, data["d_users"])
+    query_data = query.data.split(":")
+    id_user = (
+        query_data[2]
+        if query_data[2] != "custom"
+        else f"{query_data[2]}:{query_data[3]}"
+    )
+    d_users = update_dict_users(id_user, data["d_users"])
     await state.update_data(d_users=d_users)
-    if not data.get("many_selects", False):
-        await bot.edit_message_reply_markup(
+    if data["is_many_selects"]:
+        await bot.edit_message_text(
+            text=get_text(
+                "flownomika_menu_2",
+                throw_data={
+                    "side": "Начисление" if data["side"] == "+" else "Штраф",
+                    "num": data["num"],
+                    "l_users": view_selected_users(d_users),
+                    "cpage": wrap(int(data["page"])),
+                    "allpage": wrap(count_page(5, len(d_users))),
+                },
+            ),
             chat_id=query.from_user.id,
             message_id=query.message.message_id,
-            reply_markup=None,
+            reply_markup=keyboard_inline.flownomika_list_users(
+                list_users=d_users, is_many_selects=True, page_num=data["page"]
+            ),
         )
-        await bot.send_message(
-            chat_id=query.from_user.id,
-            text=get_text("enter_reason"),
-            reply_markup=keyboard_markup.cancel(),
-        )
-        return await state.set_state(Admin.enter_reason)
-
-    await bot.edit_message_reply_markup(
+        return
+    await bot.edit_message_text(
+        text=get_text(
+            "flownomika_menu_2",
+            throw_data={
+                "side": "Начисление" if data["side"] == "+" else "Штраф",
+                "num": data["num"],
+                "l_users": view_selected_users(d_users),
+                "cpage": wrap(int(data["page"])),
+                "allpage": wrap(count_page(5, len(d_users))),
+            },
+        ),
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
-        reply_markup=keyboard_inline.flownomika_list_users(
-            list_users=d_users, many_selects=True, page_num=data["page"]
-        ),
+        reply_markup=None,
     )
+    await bot.send_message(
+        chat_id=query.from_user.id,
+        text=get_text("enter_reason"),
+        reply_markup=keyboard_markup.cancel(),
+    )
+    await state.set_state(Admin.enter_reason)
 
 
 @main_router.callback_query(
@@ -546,7 +704,15 @@ async def process_end_choise_selects(query: CallbackQuery, state: FSMContext) ->
     data = await state.get_data()
     if not [i for i in data["d_users"] if i["select"] != False]:
         return await query.answer(text=get_text("no_one_choice"), show_alert=True)
-    await bot.edit_message_reply_markup(
+    await bot.edit_message_text(
+        text=get_text(
+            "flownomika_menu_1",
+            throw_data={
+                "side": "Начисление" if data["side"] == "+" else "Штраф",
+                "num": data["num"],
+                "l_users": view_selected_users(data["d_users"]),
+            },
+        ),
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
         reply_markup=None,
@@ -567,11 +733,21 @@ async def enter_reason_cancel(message: Message, state: FSMContext) -> None:
         get_text("canceled"), reply_markup=keyboard_markup.main_menu_admin()
     )
     await message.answer(
-        get_text("flownomika_menu"),
+        text=get_text(
+            "flownomika_menu_2",
+            throw_data={
+                "side": "Начисление" if data["side"] == "+" else "Штраф",
+                "num": data["num"],
+                "l_users": view_selected_users(data["d_users"]),
+                "cpage": wrap(int(data["page"])),
+                "allpage": wrap(count_page(5, len(data["d_users"]))),
+            },
+        ),
         reply_markup=keyboard_inline.flownomika_list_users(
-            data["d_users"], many_selects=True, page_num=data["page"]
+            data["d_users"], is_many_selects=True, page_num=data["page"]
         ),
     )
+    await state.update_data(is_many_selects=True)
     return await state.set_state(Admin.main)
 
 
@@ -600,82 +776,6 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
     await state.set_state(Admin.main)
 
 
-@main_router.callback_query(
-    Admin.main,
-    F.data.split(":")[0] == "action",
-    F.data.split(":")[1] == "enter_another_quantity",
-)
-async def process_enter_another_quantity(
-    query: CallbackQuery, state: FSMContext
-) -> None:
-    side = query.data.split(":")[-1]
-    await state.update_data(side=side)
-    await bot.edit_message_text(
-        chat_id=query.from_user.id,
-        message_id=query.message.message_id,
-        text=get_text("enter_another_quantity"),
-        reply_markup=None,
-    )
-    await state.set_state(Admin.enter_another_quantity)
-
-
-@main_router.message(Admin.enter_another_quantity)
-async def enter_another_quantity(message: Message, state: FSMContext) -> None:
-    if not message.text.isnumeric():
-        return
-    data = await state.get_data()
-    side = data["side"]
-    await state.update_data(num=f"{side}{message.text}")
-    d_users = get_data_users()
-    await state.update_data(d_users=d_users)
-    await state.update_data(page=1)
-    await message.answer(
-        get_text("flownomika_menu"),
-        reply_markup=keyboard_inline.flownomika_list_users(d_users),
-    )
-    await state.set_state(Admin.main)
-
-
-@main_router.callback_query(
-    Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "turn_left"
-)
-async def process_turn_left(query: CallbackQuery, state: FSMContext) -> None:
-    data = await state.get_data()
-    q_page = count_page(5, len(data["d_users"]))
-    if q_page == 1:
-        return
-    page = int(query.data.split(":")[-1])
-    page = page - 1 if page > 1 else q_page
-    await state.update_data(page=page)
-    await bot.edit_message_reply_markup(
-        chat_id=query.from_user.id,
-        message_id=query.message.message_id,
-        reply_markup=keyboard_inline.flownomika_list_users(
-            list_users=data["d_users"], many_selects=data["many_selects"], page_num=page
-        ),
-    )
-
-
-@main_router.callback_query(
-    Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "turn_right"
-)
-async def process_turn_right(query: CallbackQuery, state: FSMContext) -> None:
-    data = await state.get_data()
-    q_page = count_page(5, len(data["d_users"]))
-    if q_page == 1:
-        return
-    page = int(query.data.split(":")[-1])
-    page = page + 1 if page < q_page else 1
-    await state.update_data(page=page)
-    await bot.edit_message_reply_markup(
-        chat_id=query.from_user.id,
-        message_id=query.message.message_id,
-        reply_markup=keyboard_inline.flownomika_list_users(
-            list_users=data["d_users"], many_selects=data["many_selects"], page_num=page
-        ),
-    )
-
-
 @main_router.message(Admin.main, F.text == "file")
 async def get_file(message: Message):
     await message.answer(get_text("files"), reply_markup=keyboard_inline.get_files_k())
@@ -701,7 +801,7 @@ async def handle_photo(message: Message):
 @main_router.message(Admin.main, F.document)
 async def handle_docs(message: Message):
     file_name = message.document.file_name
-    if is_xlsx_extend(file_name) and message.from_user.id == 474701274:
+    if is_xlsx_extend(file_name):
         flow_db.close(flow_db.conn)
         file_id = message.document.file_id
         file = await bot.get_file(file_id)
@@ -721,16 +821,28 @@ async def handle_docs(message: Message):
 # async def update(message: Message, state: FSMContext) -> None:
 #     await all_mes(message, state)
 
-
-@main_router.message()
-@state_is_none
-async def all_mes(message: Message, state: FSMContext) -> None:
+@main_router.message(Command(commands=['update']))
+async def all_mes2(message: Message, state: FSMContext) -> None:
     id_user = message.from_user.id
     if not flow_db.user_exists(id_user):
         return await command_start(message, state)
     if not flow_db.rule_exists(id_user):
         await state.set_state(FormReg.fio)
         return await process_fio(message, state)
+    n = random.randint(1, 8)
+    rule = flow_db.get_value(key="rule", where="id", meaning=id_user)
+    if rule == "admin":
+        return await message.answer(
+            get_text(f'hi{n}'),
+            reply_markup=keyboard_markup.main_menu_admin(),
+        )
+    await message.answer(get_text(f'hi{n}'), keyboard_markup.main_menu_user())
+
+
+@main_router.message()
+@state_is_none
+async def all_mes(message: Message, state: FSMContext) -> None:
+    id_user = message.from_user.id
     rule = flow_db.get_value(key="rule", where="id", meaning=id_user)
     if rule == "admin":
         await state.set_state(Admin.main)
@@ -740,9 +852,11 @@ async def all_mes(message: Message, state: FSMContext) -> None:
         )
     if rule == "ban":
         return await state.set_state(Ban.void)
-    await message.answer(
-        get_text("again_hello"), reply_markup=keyboard_markup.main_menu_user()
-    )
+    if rule == "viewer":
+        return await state.set_state(Viewer.main)
+
+
+
 
 
 async def main() -> None:

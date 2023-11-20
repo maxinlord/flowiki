@@ -1,6 +1,7 @@
 import datetime
 import random
 import string
+from typing import List
 from db_func import flow_db
 import pandas as pd
 
@@ -52,14 +53,16 @@ def get_text(name: str, throw_data: dict = None) -> str:
     return f"({name})\n\n{text}" if text_mode == "on" else text
 
 
-def update_dict_users(name: str, dict_users: list) -> list:
+def update_dict_users(id_user: str, dict_users: list) -> list:
     for num, i in enumerate(dict_users):
-        if i["name"] == name:
+        if i["id"] == id_user:
             dict_users[num]["select"] = not dict_users[num]["select"]
     return dict_users
 
 
 def count_page(size_one_page, quantity_users) -> int:
+    if quantity_users % size_one_page == 0:
+        return quantity_users / size_one_page
     return (quantity_users // size_one_page) + 1
 
 
@@ -93,12 +96,20 @@ def get_table_name():
 
 
 def get_data_users():
-    l_users = flow_db.get_all_line_key(key="rule, fio, id, balance_flow", order="fio")
+    l_users = flow_db.get_all_line_key(
+        key="rule, fio, id, balance_flow", order="fio", sort_by="ASC"
+    )
     d_users = [
-        {"name": i["fio"], "balance": i["balance_flow"], "select": False, "id": i["id"]}
+        {
+            "name": i["fio"],
+            "balance": i["balance_flow"],
+            "select": False,
+            "id": i["id"],
+            "rule": i["rule"],
+        }
         for i in l_users
-        if i["rule"] != "admin"
     ]
+    d_users = filter_(d_users, rule="user")
     return d_users
 
 
@@ -107,7 +118,7 @@ def wrap(
     q_signs_after_comma: int = 2,
     is_persent: bool = False,
     format: str = "code",
-    add_sign: str = '',
+    add_sign: str = "",
 ) -> str:
     if is_persent:
         add_sign = "%"
@@ -121,10 +132,56 @@ def wrap(
         int(num), format=format, add_sign=add_sign
     )
 
+
 def create_custom_id(len_tag: int = 8):
-    tag = ''
+    tag = ""
     signs = string.digits + string.ascii_letters
     for _ in range(len_tag):
         sign = random.choice(signs)
         tag += sign
-    return f'custom:{tag}'
+    return f"custom:{tag}"
+
+
+def filter_(data, **kwargs):
+    """
+    Filters a list of dictionaries based on specified conditions.
+
+    Args:
+        list_of_dicts (list[dict]): List of dictionaries to filter.
+        **kwargs: Keyword arguments representing filter conditions.
+
+    Returns:
+        list[dict]: Filtered list of dictionaries.
+    """
+    return [
+        d
+        for d in data
+        if all(
+            k in d
+            and (
+                isinstance(v, str)
+                and v in d[k]
+                or isinstance(v, (int, float))
+                and eval(f"{d[k]} {v}")
+            )
+            for k, v in kwargs.items()
+        )
+    ]
+
+
+def view_selected_users(d_users: dict):
+    l_user = []
+    for user in d_users:
+        if user["select"]:
+            l_user.append(user["name"])
+
+    if l_user:
+        last = l_user.pop(-1)
+        if l_user:
+            return "\n     ├" + "\n     ├".join(l_user).strip(",") + f"\n     └{last}"
+        return f"\n     └{last}"
+    return "Не указано"
+
+
+# data = get_data_users()
+# print(filter_(data, rule="user"))
