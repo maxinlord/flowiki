@@ -4,7 +4,6 @@ import logging
 import os
 import sys
 from typing import Any, Dict
-from aiogram.fsm.storage.base import BaseStorage
 from aiogram import F, Router, html
 from aiogram import Bot, Dispatcher, Router
 from aiogram.enums import ParseMode
@@ -449,6 +448,10 @@ async def history_transfer(message: Message, state: FSMContext) -> None:
         if i["id"] == str(message.from_user.id)
     ]
     history_text = "\n".join(historys)
+    if len(history_text)> 4096:
+        await message.answer(
+        get_text("history_info_error"))
+        return
     await message.answer(
         get_text("history_info", throw_data={"list_historys": history_text})
     )
@@ -836,7 +839,7 @@ async def all_mes2(message: Message, state: FSMContext) -> None:
             get_text(f'hi{n}'),
             reply_markup=keyboard_markup.main_menu_admin(),
         )
-    await message.answer(get_text(f'hi{n}'), keyboard_markup.main_menu_user())
+    await message.answer(text=get_text(f'hi{n}'), reply_markup=keyboard_markup.main_menu_user())
 
 
 @main_router.message()
