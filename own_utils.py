@@ -69,7 +69,7 @@ def count_page(size_one_page, quantity_users) -> int:
 def get_xlsx_table(conn, table_name):
     # Write each table to a separate worksheet in the Excel file
     with pd.ExcelWriter(f"{table_name}.xlsx") as writer:
-        df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
+        df = pd.read_sql(f"SELECT * FROM '{table_name}'", conn)
         df.to_excel(writer, sheet_name=table_name, index=False)
 
 
