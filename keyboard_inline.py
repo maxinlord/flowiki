@@ -135,6 +135,6 @@ def for_what():
 
 def arrows(page_num):
     builder = InlineKeyboardBuilder()
-    builder.button(text=get_button("arrow_left"), callback_data=f"action:turn_left:{page_num}")
-    builder.button(text=get_button("arrow_right"), callback_data=f"action:turn_right:{page_num}")
+    builder.button(text=get_button("arrow_left"), callback_data=f"action:to_left:{page_num}")
+    builder.button(text=get_button("arrow_right"), callback_data=f"action:to_right:{page_num}")
     return builder.as_markup()

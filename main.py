@@ -471,7 +471,7 @@ async def history_transfer(message: Message, state: FSMContext) -> None:
 
 @main_router.callback_query(
     F.data.split(":")[0] == "action",
-    F.data.split(":")[1].in_(["turn_right", "turn_left"]),
+    F.data.split(":")[1].in_(["to_right", "to_left"]),
 )
 async def process_turn_right(query: CallbackQuery, state: FSMContext) -> None:
     raw_data = flow_db.get_all_line_key(
@@ -618,7 +618,7 @@ async def process_turn_left(query: CallbackQuery, state: FSMContext) -> None:
     q_page = count_page(5, len(data["d_users"]))
     if q_page == 1:
         return
-    page = int(query.data.split(":")[-1])
+    page = int(query.data.split(":")[-1].split('.')[0])
     page = page - 1 if page > 1 else q_page
     await state.update_data(page=page)
     await bot.edit_message_text(
@@ -650,7 +650,7 @@ async def process_turn_right(query: CallbackQuery, state: FSMContext) -> None:
     q_page = count_page(5, len(data["d_users"]))
     if q_page == 1:
         return
-    page = int(query.data.split(":")[-1])
+    page = int(query.data.split(":")[-1].split('.')[0])
     page = page + 1 if page < q_page else 1
     await state.update_data(page=page)
     await bot.edit_message_text(

@@ -142,7 +142,7 @@ def create_custom_id(len_tag: int = 8):
     return f"custom:{tag}"
 
 
-def filter_(data: list[dict], **kwargs):
+def filter_(data, **kwargs):
     """
     Filters a list of dictionaries based on specified conditions.
 
