@@ -142,7 +142,7 @@ def create_custom_id(len_tag: int = 8):
     return f"custom:{tag}"
 
 
-def filter_(data, **kwargs):
+def filter_(data: list[dict], **kwargs):
     """
     Filters a list of dictionaries based on specified conditions.
 
@@ -182,6 +182,29 @@ def view_selected_users(d_users: dict):
         return f"\n     └{last}"
     return "Не указано"
 
+def count_index_for_page(page_num, size_one_page):
+    start = size_one_page * (page_num - 1)
+    end = start + size_one_page
+    return start, end
+
+def create_text_historys(raw_data, page_num):
+    lenght_d = len(raw_data)
+    start, end = count_index_for_page(page_num, 5)
+    end = end if end < lenght_d else lenght_d
+    historys = []
+    for i in range(start, end, 1):
+        historys.append(get_text(
+            "pattern_line_history_transfer",
+            throw_data={
+                "date": raw_data[i]["date"],
+                "num": raw_data[i]["num"],
+                "reason": raw_data[i]["reason"],
+                "owner_reason": flow_db.get_value(
+                    key="fio", where="id", meaning=raw_data[i]["owner_reason"]
+                ),
+            },
+        ))
+    return "\n".join(historys)
 
 # data = get_data_users()
 # print(filter_(data, rule="user"))

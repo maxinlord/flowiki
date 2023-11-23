@@ -2,6 +2,7 @@ import asyncio
 import html
 import logging
 import os
+from pprint import pprint
 import sys
 from typing import Any, Dict
 from aiogram import F, Router, html
@@ -17,7 +18,7 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 from aiogram.types import FSInputFile
-
+from aiogram.filters import Filter
 
 from db_func import flow_db
 import config
@@ -52,6 +53,21 @@ class Ban(StatesGroup):
     void = State()
 
 
+class Block(Filter):
+    def __init__(self, ids: list = [], pass_if: bool = True) -> None:
+        self.pass_if = pass_if
+        if ids:
+            ids = ids.append(config.CHAT_ID)
+            self.ids = ids
+            return
+        self.ids = [config.CHAT_ID]
+
+    async def __call__(self, message: Message) -> bool:
+        if self.pass_if:
+            return str(message.chat.id) in self.ids
+        return str(message.chat.id) not in self.ids
+
+
 def state_is_none(func):
     async def wrapper(message: Message, state: FSMContext):
         current_state = await state.get_state()
@@ -62,14 +78,20 @@ def state_is_none(func):
     return wrapper
 
 
-@form_router.message(CommandStart())
+@main_router.message(Block())
+async def chat_block(message: Message, state: FSMContext) -> None:
+    return
+
+
+@form_router.message(CommandStart(), Block(pass_if=False))
 @state_is_none
 async def command_start(message: Message, state: FSMContext) -> None:
     id_user = message.from_user.id
     if flow_db.user_exists(id_user):
+        pprint(message)
         return await message.answer(
             get_text("hi"),
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=keyboard_markup.main_menu_user(),
         )
     await state.set_state(FormReg.fio)
     await message.answer(
@@ -429,31 +451,55 @@ async def history_transfer(message: Message, state: FSMContext) -> None:
         order="date",
         table="history_reasons",
     )
-    raw_data = [i for i in raw_data if i["id"] == str(message.from_user.id)]
+    raw_data = filter_(raw_data, id=str(message.from_user.id))
     if not raw_data:
         return await message.answer(get_text("history_not_exists"))
-    historys = [
-        get_text(
-            "pattern_line_history_transfer",
-            throw_data={
-                "date": i["date"],
-                "num": i["num"],
-                "reason": i["reason"],
-                "owner_reason": flow_db.get_value(
-                    key="fio", where="id", meaning=i["owner_reason"]
-                ),
-            },
-        )
-        for i in raw_data
-        if i["id"] == str(message.from_user.id)
-    ]
-    history_text = "\n".join(historys)
-    if len(history_text)> 4096:
-        await message.answer(
-        get_text("history_info_error"))
-        return
+    q_page = count_page(5, len(raw_data))
+    history_text = create_text_historys(raw_data=raw_data, page_num=1)
     await message.answer(
-        get_text("history_info", throw_data={"list_historys": history_text})
+        get_text(
+            "history_info",
+            throw_data={
+                "list_historys": history_text,
+                "allpage": wrap(q_page),
+                "cpage": wrap(1),
+            },
+        ),
+        reply_markup=keyboard_inline.arrows(page_num=1),
+    )
+
+
+@main_router.callback_query(
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1].in_(["turn_right", "turn_left"]),
+)
+async def process_turn_right(query: CallbackQuery, state: FSMContext) -> None:
+    raw_data = flow_db.get_all_line_key(
+        key="id, reason, owner_reason, date, num",
+        order="date",
+        table="history_reasons",
+    )
+    raw_data = filter_(raw_data, id=str(query.from_user.id))
+    q_page = count_page(5, len(raw_data))
+    page = int(query.data.split(":")[-1])
+    if query.data.split(":")[1] == "turn_right":
+        page = page + 1 if page < q_page else 1
+    else:
+        page = page - 1 if page > 1 else q_page
+
+    history_text = create_text_historys(raw_data=raw_data, page_num=page)
+    await bot.edit_message_text(
+        chat_id=query.from_user.id,
+        message_id=query.message.message_id,
+        text=get_text(
+            "history_info",
+            throw_data={
+                "list_historys": history_text,
+                "allpage": wrap(q_page),
+                "cpage": wrap(page),
+            },
+        ),
+        reply_markup=keyboard_inline.arrows(page_num=page),
     )
 
 
@@ -675,17 +721,19 @@ async def process_select_user(query: CallbackQuery, state: FSMContext) -> None:
             ),
         )
         return
+    history_text = get_text(
+        "flownomika_menu_1",
+        throw_data={
+            "side": "Начисление" if data["side"] == "+" else "Штраф",
+            "num": data["num"],
+            "l_users": view_selected_users(d_users),
+            "cpage": wrap(int(data["page"])),
+            "allpage": wrap(count_page(5, len(d_users))),
+        },
+    )
+    await state.update_data(history_text=history_text)
     await bot.edit_message_text(
-        text=get_text(
-            "flownomika_menu_2",
-            throw_data={
-                "side": "Начисление" if data["side"] == "+" else "Штраф",
-                "num": data["num"],
-                "l_users": view_selected_users(d_users),
-                "cpage": wrap(int(data["page"])),
-                "allpage": wrap(count_page(5, len(d_users))),
-            },
-        ),
+        text=history_text,
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
         reply_markup=None,
@@ -707,15 +755,17 @@ async def process_end_choise_selects(query: CallbackQuery, state: FSMContext) ->
     data = await state.get_data()
     if not [i for i in data["d_users"] if i["select"] != False]:
         return await query.answer(text=get_text("no_one_choice"), show_alert=True)
+    history_text = get_text(
+        "flownomika_menu_1",
+        throw_data={
+            "side": "Начисление" if data["side"] == "+" else "Штраф",
+            "num": data["num"],
+            "l_users": view_selected_users(data["d_users"]),
+        },
+    )
+    await state.update_data(history_text=history_text)
     await bot.edit_message_text(
-        text=get_text(
-            "flownomika_menu_1",
-            throw_data={
-                "side": "Начисление" if data["side"] == "+" else "Штраф",
-                "num": data["num"],
-                "l_users": view_selected_users(data["d_users"]),
-            },
-        ),
+        text=history_text,
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
         reply_markup=None,
@@ -775,6 +825,22 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
         ),
         reply_markup=keyboard_markup.main_menu_admin(),
     )
+    id_user = message.from_user.id
+    name_admin = flow_db.get_value(key="fio", where="id", meaning=str(id_user))
+    name_admin = f'<a href="https://t.me/@id{id_user}">{name_admin}</a>'
+    reason = message.text.strip()
+    await bot.send_message(
+        chat_id=config.CHAT_ID,
+        message_thread_id=config.THREAD_ID_HISTORY,
+        text=get_text(
+            "history_for_admin",
+            throw_data={
+                "admin": name_admin,
+                "h_data": data["history_text"],
+                "reason": reason,
+            },
+        ),
+    )
     await state.set_data({})
     await state.set_state(Admin.main)
 
@@ -824,7 +890,8 @@ async def handle_docs(message: Message):
 # async def update(message: Message, state: FSMContext) -> None:
 #     await all_mes(message, state)
 
-@main_router.message(Command(commands=['update']))
+
+@main_router.message(Command(commands=["update"]), Block(pass_if=False))
 async def all_mes2(message: Message, state: FSMContext) -> None:
     id_user = message.from_user.id
     if not flow_db.user_exists(id_user):
@@ -836,10 +903,12 @@ async def all_mes2(message: Message, state: FSMContext) -> None:
     rule = flow_db.get_value(key="rule", where="id", meaning=id_user)
     if rule == "admin":
         return await message.answer(
-            get_text(f'hi{n}'),
+            get_text(f"hi{n}"),
             reply_markup=keyboard_markup.main_menu_admin(),
         )
-    await message.answer(text=get_text(f'hi{n}'), reply_markup=keyboard_markup.main_menu_user())
+    await message.answer(
+        text=get_text(f"hi{n}"), reply_markup=keyboard_markup.main_menu_user()
+    )
 
 
 @main_router.message()
@@ -857,9 +926,6 @@ async def all_mes(message: Message, state: FSMContext) -> None:
         return await state.set_state(Ban.void)
     if rule == "viewer":
         return await state.set_state(Viewer.main)
-
-
-
 
 
 async def main() -> None:
