@@ -18,14 +18,28 @@ def main_menu_admin():
     builder.button(text=get_button("flownomika"))
     builder.button(text=get_button("top"))
     builder.button(text=get_button("hand_reg"))
-    builder.adjust(2, 1)
+    builder.button(text=get_button("options_for_admin"))
+    builder.adjust(2, 1, 1)
     return builder.as_markup(
         resize_keyboard=True, input_field_placeholder="Бог тебя любит ♡"
     )
 
+
 def cancel():
     builder = ReplyKeyboardBuilder()
     builder.button(text=get_button("cancel"))
+    return builder.as_markup(
+        resize_keyboard=True, input_field_placeholder="Бог тебя любит ♡"
+    )
+
+
+def menu_options():
+    builder = ReplyKeyboardBuilder()
+    builder.button(text=get_button("notifications"))
+    builder.button(text=get_button("display"))
+    builder.button(text=get_button("presets"))
+    builder.button(text=get_button("back"))
+    builder.adjust(2, 2)
     return builder.as_markup(
         resize_keyboard=True, input_field_placeholder="Бог тебя любит ♡"
     )

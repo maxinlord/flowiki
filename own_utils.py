@@ -2,8 +2,10 @@ import datetime
 import random
 import string
 from typing import List
-from db_func import flow_db
+from init_db import flow_db
 import pandas as pd
+import re
+from datetime import datetime
 
 
 def get_current_date(format="%Y-%m-%d"):
@@ -28,7 +30,7 @@ def get_button(name: str, throw_data: dict = None) -> str:
         text = flow_db.get_value(
             key="text", where="name", meaning=name, table="button_texts"
         )
-    except:
+    except Exception:
         flow_db.add_new_button(name)
         text = "created now"
     text = text.format(**throw_data) if throw_data else text
@@ -46,7 +48,7 @@ def get_text(name: str, throw_data: dict = None) -> str:
         text = flow_db.get_value(
             key="text", where="name", meaning=name, table="message_texts"
         )
-    except:
+    except Exception:
         flow_db.add_new_text(name=name)
         text = "created now"
     text = text.format(**throw_data) if throw_data else text
@@ -95,7 +97,7 @@ def get_table_name():
     return table_names
 
 
-def get_data_users():
+def get_dict_users():
     l_users = flow_db.get_all_line_key(
         key="rule, fio, id, balance_flow", order="fio", sort_by="ASC"
     )
@@ -109,7 +111,23 @@ def get_data_users():
         }
         for i in l_users
     ]
-    d_users = filter_(d_users, rule="user")
+    return d_users
+
+
+def get_dict_users_with_filter(id_user):
+    display = flow_db.get_value(
+        table="users", key="display", where="id", meaning=id_user
+    )
+    d_users = get_dict_users()
+    ids = get_admin_preset(id_user)
+    if display:
+        for user in d_users:
+            if display == "display_name_sername":
+                name = " ".join(user["name"].split(" ")[::-1])
+                user["name"] = name
+    if not ids:
+        return [user for user in d_users if user["rule"] == "user"]
+    d_users = [user for user in d_users if str(user["id"]) in ids]
     return d_users
 
 
@@ -133,67 +151,63 @@ def wrap(
     )
 
 
+def wrap_2dd(text: str):  # sourcery skip: remove-unnecessary-cast
+    text = str(text)
+    sign_to_replace1 = "꠲"
+    sign_to_replace2 = "꠱"
+    text = text.replace(":", sign_to_replace1)
+    text = text.replace(",", sign_to_replace2)
+    return text
+
+
+def unwrap_2dd(text: str):  # sourcery skip: remove-unnecessary-cast
+    text = str(text)
+    sign_to_replace1 = "꠲"
+    sign_to_replace2 = "꠱"
+    text = text.replace(sign_to_replace1, ":")
+    text = text.replace(sign_to_replace2, ",")
+    return text
+
+
 def create_custom_id(len_tag: int = 8):
-    tag = ""
     signs = string.digits + string.ascii_letters
-    for _ in range(len_tag):
-        sign = random.choice(signs)
-        tag += sign
+    tag = "".join(random.choices(signs, k=len_tag))
     return f"custom:{tag}"
 
 
-def filter_(data, **kwargs):
-    """
-    Filters a list of dictionaries based on specified conditions.
+def create_tag_for_preset(len_tag: int = 8):
+    signs = string.digits + string.ascii_letters
+    tag = "".join(random.choices(signs, k=len_tag))
+    return tag
 
-    Args:
-        list_of_dicts (list[dict]): List of dictionaries to filter.
-        **kwargs: Keyword arguments representing filter conditions.
 
-    Returns:
-        list[dict]: Filtered list of dictionaries.
-    """
-    return [
-        d
-        for d in data
-        if all(
-            k in d
-            and (
-                isinstance(v, str)
-                and v in d[k]
-                or isinstance(v, (int, float))
-                and eval(f"{d[k]} {v}")
-            )
-            for k, v in kwargs.items()
-        )
-    ]
+def create_tag_for_notify(len_tag: int = 8):
+    signs = string.digits + string.ascii_letters
+    tag = "".join(random.choices(signs, k=len_tag))
+    return tag
 
 
 def view_selected_users(d_users: dict):
-    l_user = []
-    for user in d_users:
-        if user["select"]:
-            l_user.append(user["name"])
-
-    if l_user:
+    if l_user := [user["name"] for user in d_users if user["select"]]:
         last = l_user.pop(-1)
         if l_user:
             return "\n     ├" + "\n     ├".join(l_user).strip(",") + f"\n     └{last}"
         return f"\n     └{last}"
     return "Не указано"
 
+
 def count_index_for_page(page_num, size_one_page):
     start = size_one_page * (page_num - 1)
     end = start + size_one_page
     return start, end
 
+
 def create_text_historys(raw_data, page_num):
     lenght_d = len(raw_data)
     start, end = count_index_for_page(page_num, 5)
-    end = end if end < lenght_d else lenght_d
-    historys = []
-    for i in range(start, end, 1):
-        historys.append(get_text(
+    end = min(end, lenght_d)
+    historys = [
+        get_text(
             "pattern_line_history_transfer",
             throw_data={
                 "date": raw_data[i]["date"],
@@ -203,8 +217,114 @@ def create_text_historys(raw_data, page_num):
                     key="fio", where="id", meaning=raw_data[i]["owner_reason"]
                 ),
             },
-        ))
+        )
+        for i in range(start, end)
+    ]
     return "\n".join(historys)
+
+
+def de_active_presets(user_presets):
+    for preset in user_presets:
+        preset["is_active"] = 0
+    return user_presets
+
+
+def activate_preset(user_presets, id_preset):
+    for preset in user_presets:
+        if preset["id_preset"] == id_preset:
+            preset["is_active"] = 1
+    return user_presets
+
+
+def delete_preset(user_presets, id_preset):
+    return [preset for preset in user_presets if preset["id_preset"] != id_preset]
+
+
+def delete_notification(user_notifications, id_notify):
+    return [notify for notify in user_notifications if notify["id_notify"] != id_notify]
+
+
+def get_admin_preset(id_user) -> list:
+    presets = flow_db.parse_2dd(
+        table="users", key="presets", where="id", meaning=id_user
+    )
+    if not presets:
+        return []
+    row_ids = [preset["ids"] for preset in presets if preset["is_active"] == 1]
+    if not row_ids:
+        return []
+    row_ids = row_ids[0]
+    ids = (
+        [str(row_ids)]
+        if isinstance(row_ids, int)
+        else row_ids.replace("-", ":").split("<")
+    )
+    return ids
+
+
+def extract_date(text: str) -> str:  # sourcery skip: use-named-expression
+    date_regex = r"\d{1,2}[./-]\d{1,2}[./-]\d{2,4}"
+    match = re.search(date_regex, text)
+    if match:
+        date_str = match.group()
+        date = datetime.strptime(date_str, "%d.%m.%Y")
+        return date.strftime("%d.%m.%Y")
+    return ""
+
+
+def extract_time(text: str) -> str:  # sourcery skip: use-named-expression
+    time_regex = r"\d{1,2}:\d{1,2}"
+    match_time = re.search(time_regex, text)
+    if match_time:
+        time_str = match_time.group()
+        date_time = datetime.strptime(time_str, "%H:%M")
+        return date_time.strftime("%H:%M")
+    return ""
+
+
+async def clean_notification(id_user):
+    notifications = flow_db.parse_2dd(
+        table="users", key="notifications", where="id", meaning=id_user
+    )
+    for notify in notifications:
+        if notify["is_active"] == 0:
+            flow_db.delete_2dd(
+                table="users",
+                key="notifications",
+                where="id",
+                meaning=int(id_user),
+                unique_value_data='0',
+            )
+
+def set_preset(id_user, id_preset_to_activate):
+    # sourcery skip: use-named-expression
+    presets = flow_db.parse_2dd(
+        table="users", key="presets", where="id", meaning=id_user
+    )
+    
+    id_old_preset = [preset['id_preset'] for preset in presets if preset['is_active'] == 1]
+    if id_old_preset:
+        flow_db.update_value_2dd(
+            table="users",
+            key="presets",
+            where="id",
+            meaning=id_user,
+            where_data="id_preset",
+            meaning_data=id_old_preset[0],
+            update_data="is_active",
+            value=0,)
+    if id_preset_to_activate == 'base_preset':
+        return
+    flow_db.update_value_2dd(
+        table="users",
+        key="presets",
+        where="id",
+        meaning=id_user,
+        where_data="id_preset",
+        meaning_data=id_preset_to_activate,
+        update_data="is_active",
+        value=1,
+    )
 
 # data = get_data_users()
 # print(filter_(data, rule="user"))

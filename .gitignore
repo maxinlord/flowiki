@@ -35,9 +35,11 @@
 *.out
 *.app
 *.xlsx
+*.pyc
 
 /config.py
 venv
+/test_lab.py
 /__pycache__
 /tempCodeRunnerFile.py
 
