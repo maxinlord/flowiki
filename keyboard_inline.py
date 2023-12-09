@@ -1,5 +1,5 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from own_utils import get_button, get_table_name, unwrap_2dd
+from own_utils import get_button, get_table_name, unwrap_2dd, weekday_tr
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
@@ -211,6 +211,10 @@ def presets_list_users(
             )
             grid_size += 1
     builder.button(
+        text=get_button("by_default"),
+        callback_data="action:by_default",
+    )
+    builder.button(
         text=get_button("end_choise"),
         callback_data="action:preset_end_choise_selects",
     )
@@ -222,7 +226,7 @@ def presets_list_users(
         text=get_button("arrow_right"),
         callback_data=f"action:preset_turn_right:{page_num}",
     )
-    builder.adjust(*[1 for _ in range(grid_size)], 1, 2)
+    builder.adjust(*[1 for _ in range(grid_size)], 2, 2)
     return builder.as_markup()
 
 
@@ -262,7 +266,7 @@ def menu_notifications(user_notifications):
     return builder.as_markup()
 
 
-def del_notify():
+def back_and_del_notify():
     builder = InlineKeyboardBuilder()
     builder.button(
         text=get_button("del_notify"),
@@ -293,6 +297,66 @@ def menu_presets_for_notify(user_presets):
     )
     if l := len(user_presets) > 0:
         builder.adjust(*[1 for _ in range(l)])
+    else:
+        builder.adjust(1)
+    return builder.as_markup()
+
+
+def week_days():
+    builder = InlineKeyboardBuilder()
+    for day in weekday_tr:
+        builder.button(
+            text=get_button(
+                "pattern_name_day_for_notify",
+                throw_data={"name_day": weekday_tr[day]},
+            ),
+            callback_data=f"action:tap_on_day:{day}",
+        )
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def type_notify():
+    builder = InlineKeyboardBuilder()
+    types = {
+        "once": "Одноразово",
+        "remind": "Напоминание",
+    }
+    for type_ in types:
+        builder.button(
+            text=get_button(
+                "pattern_name_type_for_notify",
+                throw_data={"name_type": types[type_]},
+            ),
+            callback_data=f"action:tap_on_type:{type_}",
+        )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def menu_reason(reasons):
+    builder = InlineKeyboardBuilder()
+    for reason in reasons:
+        emoji = "✅" if reason["is_choose"] else ""
+        builder.button(
+            text=get_button(
+                "pattern_name_reason",
+                throw_data={'date': reason['date'],
+                            'sername': reason['name'],
+                            'part_of_reason': reason['reason'][:7],
+                            'num': reason['num']},
+                            
+            ),
+            callback_data=f"action:tap_on_reason:{reason['tag']}",
+        )
+    builder.button(
+            text=get_button(
+                "delete_reason",
+            ),
+            callback_data=f"action:delete_reason",
+        )
+    if l := len(reasons) > 0:
+        builder.adjust(*[1 for _ in range(l)], 1)
     else:
         builder.adjust(1)
     return builder.as_markup()

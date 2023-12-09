@@ -15,6 +15,7 @@ from own_utils import (
     unwrap_2dd,
     update_dict_users,
     wrap_2dd,
+    weekday_tr
 )
 from dispatcher import main_router, bot
 import keyboard_inline, keyboard_markup
@@ -29,7 +30,9 @@ async def notifications_admin(message: Message, state: FSMContext) -> None:
     user_notifications = flow_db.parse_2dd(
         table="users", key="notifications", where="id", meaning=message.from_user.id
     )
-    user_notifications = [notify for notify in user_notifications if notify['is_active'] == 1]
+    user_notifications = [
+        notify for notify in user_notifications if notify["is_active"] == 1
+    ]
     await state.update_data(user_notifications=user_notifications)
     await message.answer(
         text=get_text("menu_notification"),
@@ -45,22 +48,23 @@ async def notifications_admin(message: Message, state: FSMContext) -> None:
 async def tap_on_notify(query: CallbackQuery, state: FSMContext) -> None:
     id_notify = query.data.split(":")[-1]
     await state.update_data(selected_notify=id_notify)
-    mess = flow_db.get_2dd(
+    notifications = flow_db.parse_2dd(
         table="users",
         key="notifications",
         where="id",
-        meaning=query.from_user.id,
-        where_data="id_notify",
-        meaning_data=id_notify,
-        get_data="message",
+        meaning=query.from_user.id
     )
+    current_notify = [notify for notify in notifications if id_notify == notify['id_notify']][0]
     await bot.edit_message_text(
         text=get_text(
-            "your_message_to_remind", throw_data={"message": unwrap_2dd(mess)}
+            "your_message_to_remind", throw_data={
+                "message": unwrap_2dd(current_notify['message']),
+                'time': unwrap_2dd(current_notify['time']),
+                'weekday': weekday_tr[current_notify['weekday']]}
         ),
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
-        reply_markup=keyboard_inline.del_notify(),
+        reply_markup=keyboard_inline.back_and_del_notify(),
     )
 
 
@@ -75,7 +79,7 @@ async def back_to_menu_notifications(query: CallbackQuery, state: FSMContext) ->
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
         text=get_text("menu_notification"),
-        reply_markup=keyboard_inline.menu_notifications(data['user_notifications']),
+        reply_markup=keyboard_inline.menu_notifications(data["user_notifications"]),
     )
 
 
@@ -96,7 +100,7 @@ async def del_notify(query: CallbackQuery, state: FSMContext) -> None:
         where_data="id_notify",
         meaning_data=id_notify,
         update_data="is_active",
-        value='0',
+        value="0",
     )
     await bot.edit_message_text(
         text=get_text("menu_notification"),
@@ -117,24 +121,81 @@ async def add_new_notify(query: CallbackQuery, state: FSMContext) -> None:
         chat_id=query.from_user.id,
     )
     await bot.send_message(
-        text=get_text("enter_time_notify"),
+        text=get_text("choise_type_notify"),
         chat_id=query.from_user.id,
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=keyboard_inline.type_notify(),
     )
-    await state.set_state(Admin.enter_time_notify)
+    await state.update_data(weekday='monday')
+    await state.set_state(Admin.choise_type_notify)
 
 
-@main_router.message(Admin.enter_time_notify)
+@main_router.callback_query(
+    Admin.choise_type_notify,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1] == "tap_on_type",
+)
+async def choose_type_notify(query: CallbackQuery, state: FSMContext) -> None:
+    type_ = query.data.split(":")[-1]
+    await state.update_data(type_notify=type_)
+    if type_ == "once":
+        await bot.edit_message_text(
+            chat_id=query.from_user.id,
+            message_id=query.message.message_id,
+            text=get_text("enter_time_notify_once"),
+            reply_markup=None,
+        )
+        await state.set_state(Admin.enter_time_notify_once)
+        return
+    await bot.edit_message_text(
+        chat_id=query.from_user.id,
+        message_id=query.message.message_id,
+        text=get_text("choise_day"),
+        reply_markup=keyboard_inline.week_days(),
+    )
+    await state.set_state(Admin.choise_day_notify)
+
+
+@main_router.callback_query(
+    Admin.choise_day_notify,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1] == "tap_on_day",
+)
+async def choose_day_notify(query: CallbackQuery, state: FSMContext) -> None:
+    day = query.data.split(":")[-1]
+    await state.update_data(weekday=day)
+    await bot.edit_message_text(
+        chat_id=query.from_user.id,
+        message_id=query.message.message_id,
+        text=get_text("enter_time_notify_remind"),
+        reply_markup=None,
+    )
+    await state.set_state(Admin.enter_time_notify_remind)
+
+
+@main_router.message(Admin.enter_time_notify_once)
 async def get_time_notify(message: Message, state: FSMContext) -> None:
     # sourcery skip: de-morgan, merge-duplicate-blocks, reintroduce-else, remove-redundant-if, split-or-ifs, swap-if-else-branches
     date = extract_date(message.text)
     time = extract_time(message.text)
-    if not (date or time):
+    if not (date and time):
         return await message.answer(text=get_text("not_found_date_or_time"))
-    date_and_time = f"{date} {time}".strip()
-    await state.update_data(date_and_time=date_and_time)
+    date_and_time = f"{date[0]} {time}".strip()
+    await state.update_data(time=date_and_time, weekday=date[1])
     await message.answer(
         text=get_text("time_set_on", throw_data={"time": date_and_time})
+    )
+    await message.answer(text=get_text("enter_message_to_remind"))
+    await state.set_state(Admin.enter_message_to_remind)
+
+
+@main_router.message(Admin.enter_time_notify_remind)
+async def get_time_notify(message: Message, state: FSMContext) -> None:
+    time = extract_time(message.text)
+    if not time:
+        return await message.answer(text=get_text("not_found_date_or_time"))
+    await state.update_data(time=time.strip())
+    await message.answer(
+        text=get_text("time_set_on", throw_data={"time": time})
     )
     await message.answer(text=get_text("enter_message_to_remind"))
     await state.set_state(Admin.enter_message_to_remind)
@@ -169,10 +230,12 @@ async def tap_on_preset_notify(query: CallbackQuery, state: FSMContext) -> None:
         meaning=query.from_user.id,
         throw_data=[
             create_tag_for_notify(),
-            wrap_2dd(data["date_and_time"]),
+            data['type_notify'],
+            data['weekday'],
+            wrap_2dd(data["time"]),
             wrap_2dd(data["message_to_remind"]),
             id_preset,
-            '1'
+            "1",
         ],
     )
     await state.set_state(Admin.main)

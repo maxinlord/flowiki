@@ -10,6 +10,7 @@ from own_utils import (
     get_text,
     set_preset,
     update_dict_users,
+    wrap_2dd,
 )
 from dispatcher import main_router, bot
 import keyboard_inline, keyboard_markup
@@ -46,6 +47,8 @@ async def tap_on_preset(query: CallbackQuery, state: FSMContext) -> None:
     )
 
 
+
+
 @main_router.callback_query(
     Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "set_preset"
 )
@@ -56,6 +59,7 @@ async def process_set_preset(query: CallbackQuery, state: FSMContext) -> None:
     user_presets = data["user_presets"]
     user_presets = de_active_presets(data["user_presets"])
     user_presets = activate_preset(user_presets, id_preset)
+    await state.update_data(user_presets=user_presets)
     set_preset(id_user=query.from_user.id, id_preset_to_activate=id_preset)
     await bot.edit_message_reply_markup(
         chat_id=query.from_user.id,
@@ -72,6 +76,7 @@ async def del_preset(query: CallbackQuery, state: FSMContext) -> None:
     id_preset = data["selected_preset"]
     user_presets = data["user_presets"]
     user_presets = delete_preset(user_presets, id_preset)
+    await state.update_data(user_presets=user_presets)
     flow_db.delete_2dd(
         table="users",
         key="presets",
@@ -106,17 +111,12 @@ async def add_new_preset(query: CallbackQuery, state: FSMContext) -> None:
 
 @main_router.message(Admin.enter_name_preset)
 async def get_name_presets(message: Message, state: FSMContext) -> None:
-    name_preset = message.text.replace(':', '-')
+    name_preset = wrap_2dd(message.text)
     id_preset = create_tag_for_preset()
-    flow_db.add_2dd(
-        table="users",
-        key="presets",
-        where="id",
-        meaning=message.from_user.id,
-        throw_data=[name_preset, id_preset, "-", 0],
-    )
     d_users = get_dict_users()
-    await state.update_data(d_users=d_users, id_preset=id_preset, page=1)
+    await state.update_data(
+        d_users=d_users, id_preset=id_preset, page=1, name_preset=name_preset
+    )
     await message.answer(
         text=get_text("choice_users_for_preset"),
         reply_markup=keyboard_inline.presets_list_users(d_users),
@@ -206,32 +206,44 @@ async def preset_end_choise_selects(query: CallbackQuery, state: FSMContext) -> 
         return await query.answer(
             text=get_text("preset_no_one_choice"), show_alert=True
         )
-    ids = "<".join(
-        [
-            user["id"].replace("custom:", "custom-")
-            for user in data["d_users"]
-            if user["select"] == True
-        ]
-    )
-    flow_db.update_value_2dd(
+    ids = wrap_2dd(",".join([i["id"] for i in data["d_users"]]))
+    flow_db.add_2dd(
         table="users",
         key="presets",
         where="id",
-        meaning=id_user,
-        where_data="id_preset",
-        meaning_data=data["id_preset"],
-        update_data="ids",
-        value=ids,
-    )
-    user_presets = flow_db.parse_2dd(
-        table="users", key="presets", where="id", meaning=id_user
+        meaning=query.from_user.id,
+        throw_data=[data["name_preset"], data["id_preset"], ids, 0],
     )
     await bot.edit_message_reply_markup(
-        chat_id=id_user,
-        message_id=query.message.message_id,
-        reply_markup=None)
+        chat_id=id_user, message_id=query.message.message_id, reply_markup=None
+    )
     await bot.send_message(
         chat_id=id_user,
         text=get_text("preset_created"),
-        reply_markup=keyboard_markup.menu_options()
+        reply_markup=keyboard_markup.menu_options(),
+    )
+
+@main_router.callback_query(
+    Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "by_default"
+)
+async def process_set_preset_by_default(query: CallbackQuery, state: FSMContext) -> None:
+    id_user = query.from_user.id
+    d_users = get_dict_users()
+    data = await state.get_data()
+    data_ = [user for user in d_users if user["rule"] == "user"]
+    ids = wrap_2dd(",".join([i["id"] for i in data_]))
+    flow_db.add_2dd(
+        table="users",
+        key="presets",
+        where="id",
+        meaning=query.from_user.id,
+        throw_data=[data["name_preset"], data["id_preset"], ids, 0],
+    )
+    await bot.edit_message_reply_markup(
+        chat_id=id_user, message_id=query.message.message_id, reply_markup=None
+    )
+    await bot.send_message(
+        chat_id=id_user,
+        text=get_text("preset_created"),
+        reply_markup=keyboard_markup.menu_options(),
     )

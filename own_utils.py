@@ -5,7 +5,7 @@ from typing import List
 from init_db import flow_db
 import pandas as pd
 import re
-from datetime import datetime
+import datetime
 
 
 def get_current_date(format="%Y-%m-%d"):
@@ -186,6 +186,12 @@ def create_tag_for_notify(len_tag: int = 8):
     tag = "".join(random.choices(signs, k=len_tag))
     return tag
 
+def create_tag_for_reason(len_tag: int = 10):
+    signs = string.digits + string.ascii_letters
+    tag = "".join(random.choices(signs, k=len_tag))
+    return tag
+
+
 
 def view_selected_users(d_users: dict):
     if l_user := [user["name"] for user in d_users if user["select"]]:
@@ -257,9 +263,29 @@ def get_admin_preset(id_user) -> list:
     ids = (
         [str(row_ids)]
         if isinstance(row_ids, int)
-        else row_ids.replace("-", ":").split("<")
+        else unwrap_2dd(row_ids).split(',')
     )
     return ids
+
+
+weekday = {
+    0: "monday",
+    1: "tuesday",
+    2: "wednesday",
+    3: "thursday",
+    4: "friday",
+    5: "saturday",
+    6: "sunday",
+}
+weekday_tr = {
+    "monday": "Понедельник",
+    "tuesday": "Вторник",
+    "wednesday": "Среда",
+    "thursday": "Четверг",
+    "friday": "Пятница",
+    "saturday": "Суббота",
+    "sunday": "Воскресенье",
+}
 
 
 def extract_date(text: str) -> str:  # sourcery skip: use-named-expression
@@ -267,8 +293,9 @@ def extract_date(text: str) -> str:  # sourcery skip: use-named-expression
     match = re.search(date_regex, text)
     if match:
         date_str = match.group()
-        date = datetime.strptime(date_str, "%d.%m.%Y")
-        return date.strftime("%d.%m.%Y")
+        date = datetime.datetime.strptime(date_str, "%d.%m.%Y")
+        key_weekday = date.weekday()
+        return date.strftime("%d.%m.%Y"), weekday[key_weekday]
     return ""
 
 
@@ -277,9 +304,16 @@ def extract_time(text: str) -> str:  # sourcery skip: use-named-expression
     match_time = re.search(time_regex, text)
     if match_time:
         time_str = match_time.group()
-        date_time = datetime.strptime(time_str, "%H:%M")
+        date_time = datetime.datetime.strptime(time_str, "%H:%M")
         return date_time.strftime("%H:%M")
     return ""
+
+
+def is_date_today(str_date: str):
+    return (
+        datetime.datetime.strptime(str_date, "%d.%m.%Y").date()
+        == datetime.datetime.today().date()
+    )
 
 
 async def clean_notification(id_user):
@@ -293,16 +327,22 @@ async def clean_notification(id_user):
                 key="notifications",
                 where="id",
                 meaning=int(id_user),
-                unique_value_data='0',
+                unique_value_data="0",
             )
+            print('delete')
+
 
 def set_preset(id_user, id_preset_to_activate):
     # sourcery skip: use-named-expression
     presets = flow_db.parse_2dd(
         table="users", key="presets", where="id", meaning=id_user
     )
-    
-    id_old_preset = [preset['id_preset'] for preset in presets if preset['is_active'] == 1]
+
+    if not presets:
+        return
+    id_old_preset = [
+        preset["id_preset"] for preset in presets if preset["is_active"] == 1
+    ]
     if id_old_preset:
         flow_db.update_value_2dd(
             table="users",
@@ -312,19 +352,31 @@ def set_preset(id_user, id_preset_to_activate):
             where_data="id_preset",
             meaning_data=id_old_preset[0],
             update_data="is_active",
-            value=0,)
-    if id_preset_to_activate == 'base_preset':
+            value=0,
+        )
+    if id_preset_to_activate == "base_preset":
         return
-    flow_db.update_value_2dd(
-        table="users",
-        key="presets",
-        where="id",
-        meaning=id_user,
-        where_data="id_preset",
-        meaning_data=id_preset_to_activate,
-        update_data="is_active",
-        value=1,
-    )
+    try:
+        flow_db.update_value_2dd(
+            table="users",
+            key="presets",
+            where="id",
+            meaning=id_user,
+            where_data="id_preset",
+            meaning_data=id_preset_to_activate,
+            update_data="is_active",
+            value=1,
+        )
+    except:
+        pass
+
+def get_all_reason():
+    data = flow_db.get_all_line_key(table='history_reasons', key='tag, id, reason, date, num')
+    update_data = []
+    for reason in data:
+        reason['name'] = flow_db.get_value(key='fio', where='id', meaning=reason['id']).split(' ')[0]
+        update_data.append(reason)
+    return update_data 
 
 # data = get_data_users()
 # print(filter_(data, rule="user"))

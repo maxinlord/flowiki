@@ -23,19 +23,34 @@ from handlers import (
     notification,
     any_message,
 )
-from own_utils import clean_notification, set_preset, unwrap_2dd
+from own_utils import clean_notification, is_date_today, set_preset, unwrap_2dd
 import datetime
 
 # Установка часового пояса на Московское время
 
 d = {}
+func_days = {
+    "monday": aioschedule.every().monday.at,
+    "tuesday": aioschedule.every().tuesday.at,
+    "wednesday": aioschedule.every().wednesday.at,
+    "thursday": aioschedule.every().thursday.at,
+    "friday": aioschedule.every().friday.at,
+    "saturday": aioschedule.every().saturday.at,
+    "sunday": aioschedule.every().sunday.at,
+}
 
 
 async def notify_admin(id_user, message, id_preset_to_activate):
     await clean_notification(id_user)
-    await bot.send_message(id_user, message)
+    await bot.send_message(chat_id=id_user, text=str(message))
     set_preset(id_user, id_preset_to_activate)
-    
+
+async def notify_admin_once(id_user, message, id_preset_to_activate, job):
+    await clean_notification(id_user)
+    await bot.send_message(chat_id=id_user, text=str(message))
+    set_preset(id_user, id_preset_to_activate)
+    flow_db.delete_2dd(table='users', key='notifications', where='id', meaning=id_user, unique_value_data=job)
+    aioschedule.jobs.remove(d[job])
 
 
 async def job_sec():
@@ -60,13 +75,26 @@ async def job_minute():
                 continue
             if d.get(notify["id_notify"]):
                 continue
-            job = (
-                aioschedule.every()
-                .day.at(unwrap_2dd(notify["time"]))
-                .do(notify_admin, id_user=id_, message=notify["message"], id_preset_to_activate=notify['id_preset'])
-            )
-            d[notify["id_notify"]] = job
-
+            if notify["type_notify"] == "once":
+                date, time_ = unwrap_2dd(notify['time']).split(' ')
+                if is_date_today(date):
+                    job = func_days[notify["weekday"]](time_).do(
+                        notify_admin_once,
+                        id_user=id_,
+                        message=notify["message"],
+                        id_preset_to_activate=notify["id_preset"],
+                        job=notify["id_notify"]
+                    )
+                    d[notify["id_notify"]] = job
+            if notify["type_notify"] == "remind":
+                job = func_days[notify["weekday"]](unwrap_2dd(notify["time"])).do(
+                    notify_admin,
+                    id_user=id_,
+                    message=notify["message"],
+                    id_preset_to_activate=notify["id_preset"],
+                )
+                d[notify["id_notify"]] = job
+    print(aioschedule.jobs)
 
 async def job_hour():
     pass
