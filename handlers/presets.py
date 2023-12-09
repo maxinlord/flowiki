@@ -206,7 +206,7 @@ async def preset_end_choise_selects(query: CallbackQuery, state: FSMContext) -> 
         return await query.answer(
             text=get_text("preset_no_one_choice"), show_alert=True
         )
-    ids = wrap_2dd(",".join([i["id"] for i in data["d_users"]]))
+    ids = wrap_2dd(",".join([i["id"] for i in data["d_users"] if i['select'] == True]))
     flow_db.add_2dd(
         table="users",
         key="presets",
