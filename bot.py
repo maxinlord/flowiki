@@ -21,6 +21,7 @@ from handlers import (
     presets,
     view_options,
     notification,
+    menu_for_delete_history_reason,
     any_message,
 )
 from own_utils import clean_notification, is_date_today, set_preset, unwrap_2dd
@@ -41,20 +42,22 @@ func_days = {
 
 
 async def notify_admin(id_user, message, id_preset_to_activate):
-    await clean_notification(id_user)
-    await bot.send_message(chat_id=id_user, text=str(message))
+    message = unwrap_2dd(str(message))
+    await bot.send_message(chat_id=id_user, text=message)
     set_preset(id_user, id_preset_to_activate)
+    await clean_notification(id_user)
 
 async def notify_admin_once(id_user, message, id_preset_to_activate, job):
+    message = unwrap_2dd(str(message))
     await clean_notification(id_user)
-    await bot.send_message(chat_id=id_user, text=str(message))
+    await bot.send_message(chat_id=id_user, text=message)
     set_preset(id_user, id_preset_to_activate)
     flow_db.delete_2dd(table='users', key='notifications', where='id', meaning=id_user, unique_value_data=job)
     aioschedule.jobs.remove(d[job])
 
 
-async def job_sec():
-    print("hi")
+# async def job_sec():
+#     print("hi")
 
 
 async def job_minute():
@@ -94,7 +97,7 @@ async def job_minute():
                     id_preset_to_activate=notify["id_preset"],
                 )
                 d[notify["id_notify"]] = job
-    print(aioschedule.jobs)
+
 
 async def job_hour():
     pass

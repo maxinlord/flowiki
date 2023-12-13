@@ -1,6 +1,7 @@
 from aiogram import F
 from own_utils import (
     count_page,
+    create_tag_for_reason,
     get_admin_preset,
     get_button,
     get_current_date,
@@ -328,9 +329,10 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
     for user in data["d_users"]:
         if not user["select"]:
             continue
-        date = get_current_date("%Y-%m-%d")
+        date = get_current_date("%d.%m.%Y")
+        tag = create_tag_for_reason()
         flow_db.add_new_reason(
-            user["id"], message.text, message.from_user.id, date, data["num"]
+            tag, user["id"], message.text, message.from_user.id, date, data["num"]
         )
         flow_db.add_value(
             key="balance_flow", where="id", meaning=user["id"], value=int(data["num"])

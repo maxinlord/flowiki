@@ -48,10 +48,10 @@ class BotDB:
         return self.conn.commit()
 
     def add_new_reason(
-        self, id_user: str, reason: str, id_owner_reason: str, date: str, num
+        self, tag: str, id_user: str, reason: str, id_owner_reason: str, date: str, num
     ):
         self.cur.execute(
-            "INSERT INTO `history_reasons` (id, reason, owner_reason, date, num) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO `history_reasons` (tag, id, reason, owner_reason, date, num) VALUES (?, ?, ?, ?, ?)",
             (id_user, reason, id_owner_reason, date, num),
         )
         return self.conn.commit()

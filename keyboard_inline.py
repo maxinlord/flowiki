@@ -166,10 +166,7 @@ def menu_presets(user_presets):
         text=get_button("add_new_preset"),
         callback_data="action:add_new_preset",
     )
-    if l := len(user_presets) > 0:
-        builder.adjust(*[1 for _ in range(l)], 1)
-    else:
-        builder.adjust(1)
+    builder.adjust(1)
     return builder.as_markup()
 
 
@@ -259,10 +256,7 @@ def menu_notifications(user_notifications):
         text=get_button("add_new_notify"),
         callback_data="action:add_new_notify",
     )
-    if l := len(user_notifications) > 0:
-        builder.adjust(*[1 for _ in range(l)], 1)
-    else:
-        builder.adjust(1)
+    builder.adjust(1)
     return builder.as_markup()
 
 
@@ -295,10 +289,7 @@ def menu_presets_for_notify(user_presets):
         text=get_button("base_preset_for_notify"),
         callback_data="action:tap_on_preset:base_preset",
     )
-    if l := len(user_presets) > 0:
-        builder.adjust(*[1 for _ in range(l)])
-    else:
-        builder.adjust(1)
+    builder.adjust(1)
     return builder.as_markup()
 
 
@@ -334,29 +325,46 @@ def type_notify():
     return builder.as_markup()
 
 
-def menu_reason(reasons):
+def menu_reason(reasons, page_num: int = 1, size_one_page: int = 9):
     builder = InlineKeyboardBuilder()
-    for reason in reasons:
-        emoji = "✅" if reason["is_choose"] else ""
-        builder.button(
-            text=get_button(
-                "pattern_name_reason",
-                throw_data={'date': reason['date'],
-                            'sername': reason['name'],
-                            'part_of_reason': reason['reason'][:7],
-                            'num': reason['num']},
-                            
-            ),
-            callback_data=f"action:tap_on_reason:{reason['tag']}",
-        )
+    grid_size = 0
+    for ind, reason in enumerate(reasons):
+        if (size_one_page * page_num) - size_one_page <= ind < size_one_page * page_num:
+            emoji = "🔘" if reason["is_choose"] else ""
+            builder.button(
+                text=get_button(
+                    "pattern_name_reason",
+                    throw_data={
+                        'emoji': emoji,
+                        "date": reason["date"],
+                        "sername": reason["name"],
+                        "part_of_reason": reason["reason"][:7],
+                        "num": reason["num"],
+                    },
+                ),
+                callback_data=f"action:select_reason:{reason['tag']}",
+            )
+            grid_size += 1
     builder.button(
-            text=get_button(
-                "delete_reason",
-            ),
-            callback_data=f"action:delete_reason",
+        text=get_button(
+            "delete_reason",
+        ),
+        callback_data="action:delete_reason",
+    )
+    l = len(reasons)
+    if l > 0:
+        builder.button(
+            text=get_button("arrow_left"),
+            callback_data=f"action:history_to_del_turn_left:{page_num}",
         )
-    if l := len(reasons) > 0:
-        builder.adjust(*[1 for _ in range(l)], 1)
+        builder.button(
+            text=get_button("arrow_right"),
+            callback_data=f"action:history_to_del_turn_right:{page_num}",
+        )
+        builder.adjust(*[1 for _ in range(grid_size)], 1, 2)
     else:
         builder.adjust(1)
     return builder.as_markup()
+
+
+"{date} {sername} {part_of_reason}"

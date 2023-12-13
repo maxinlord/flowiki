@@ -15,11 +15,12 @@ def main_menu_user():
 
 def main_menu_admin():
     builder = ReplyKeyboardBuilder()
+    builder.button(text=get_button("hand_reg"))
     builder.button(text=get_button("flownomika"))
     builder.button(text=get_button("top"))
-    builder.button(text=get_button("hand_reg"))
+    builder.button(text=get_button("delete_history_reason"))
     builder.button(text=get_button("options_for_admin"))
-    builder.adjust(2, 1, 1)
+    builder.adjust(1, 2, 2)
     return builder.as_markup(
         resize_keyboard=True, input_field_placeholder="Бог тебя любит ♡"
     )

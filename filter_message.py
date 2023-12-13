@@ -1,4 +1,4 @@
-from aiogram.filters import Filter
+from aiogram.filters import Filter, CommandObject
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 import config

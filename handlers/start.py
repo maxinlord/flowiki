@@ -12,12 +12,15 @@ import keyboard_inline, keyboard_markup
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 import config
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, CommandObject
 from state_classes import Admin, Ban, FormReg, Viewer
 from aiogram.types import (
     Message,
     ReplyKeyboardRemove,
 )
+from aiogram.utils.deep_linking import create_start_link
+
+# result: 'https://t.me/MyBot?start=Zm9v'
 
 
 @main_router.message(Block())
@@ -25,10 +28,22 @@ async def chat_block(message: Message, state: FSMContext) -> None:
     return
 
 
-@form_router.message(CommandStart(), Block(pass_if=False))
-@state_is_none
-async def command_start(message: Message, state: FSMContext) -> None:
+@form_router.message(CommandStart(deep_link=True), Block(pass_if=False))
+async def command_start(message: Message, state: FSMContext, command: CommandObject) -> None:
+    arg = command.args
+    print(arg)
     id_user = message.from_user.id
+    rule = flow_db.get_value(key="rule", where="id", meaning=id_user)
+    if rule == "admin":
+        await state.set_state(Admin.main)
+        return await message.answer(
+            get_text("again_work"),
+            reply_markup=keyboard_markup.main_menu_admin(),
+        )
+    if rule == "ban":
+        return await state.set_state(Ban.void)
+    if rule == "viewer":
+        return await state.set_state(Viewer.main)
     if flow_db.user_exists(id_user):
         return await message.answer(
             get_text("hi"),
