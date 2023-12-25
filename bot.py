@@ -22,10 +22,14 @@ from handlers import (
     view_options,
     notification,
     menu_for_delete_history_reason,
+    stat_onlines,
+    # shop_items,
     any_message,
 )
-from own_utils import clean_notification, is_date_today, set_preset, unwrap_2dd
+from own_utils import clean_notification, is_date_today, set_preset
 import datetime
+
+from tool_classes import User
 
 # Установка часового пояса на Московское время
 
@@ -41,18 +45,17 @@ func_days = {
 }
 
 
-async def notify_admin(id_user, message, id_preset_to_activate):
-    message = unwrap_2dd(str(message))
+async def notify_admin_remind(id_user, message, id_preset_to_activate):
+    message = str(message)
     await bot.send_message(chat_id=id_user, text=message)
-    set_preset(id_user, id_preset_to_activate)
-    await clean_notification(id_user)
+    User(id_user).preset.current_active_preset = id_preset_to_activate
 
 async def notify_admin_once(id_user, message, id_preset_to_activate, job):
-    message = unwrap_2dd(str(message))
-    await clean_notification(id_user)
+    message = str(message)
     await bot.send_message(chat_id=id_user, text=message)
-    set_preset(id_user, id_preset_to_activate)
-    flow_db.delete_2dd(table='users', key='notifications', where='id', meaning=id_user, unique_value_data=job)
+    User(id_user).preset.current_active_preset = id_preset_to_activate
+    notify = User(id_user).notification
+    del notify[job]
     aioschedule.jobs.remove(d[job])
 
 
@@ -64,12 +67,8 @@ async def job_minute():
     date = time.strftime("%X").split(":")
     if date[2] != "59":
         return
-    ids_admin = flow_db.get_ids_admin()
-    for id_ in ids_admin:
-        notifications = flow_db.parse_2dd(
-            table="users", key="notifications", where="id", meaning=id_
-        )
-        for notify in notifications:
+    for id_ in User(id_user=None):
+        for notify in User(id_user=id_).notification:
             if notify["is_active"] == 0:
                 job = d.get(notify["id_notify"])
                 if job:
@@ -79,7 +78,7 @@ async def job_minute():
             if d.get(notify["id_notify"]):
                 continue
             if notify["type_notify"] == "once":
-                date, time_ = unwrap_2dd(notify['time']).split(' ')
+                date, time_ = notify['time'].split(' ')
                 if is_date_today(date):
                     job = func_days[notify["weekday"]](time_).do(
                         notify_admin_once,
@@ -90,8 +89,8 @@ async def job_minute():
                     )
                     d[notify["id_notify"]] = job
             if notify["type_notify"] == "remind":
-                job = func_days[notify["weekday"]](unwrap_2dd(notify["time"])).do(
-                    notify_admin,
+                job = func_days[notify["weekday"]](notify["time"]).do(
+                    notify_admin_remind,
                     id_user=id_,
                     message=notify["message"],
                     id_preset_to_activate=notify["id_preset"],

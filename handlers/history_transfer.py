@@ -12,19 +12,16 @@ import keyboard_inline
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
+from tool_classes import Reasons
+
 
 @main_router.message(F.text == get_button("history_transfer"))
 async def history_transfer(message: Message, state: FSMContext) -> None:
-    raw_data = flow_db.get_all_line_key(
-        key="id, reason, owner_reason, date, num",
-        order="date",
-        table="history_reasons",
-    )
-    raw_data = [history for history in raw_data if history['id'] == str(message.from_user.id)]
-    if not raw_data:
+    reasons = Reasons('5255757696')
+    if not list(reasons):
         return await message.answer(get_text("history_not_exists"))
-    q_page = count_page(5, len(raw_data))
-    history_text = create_text_historys(raw_data=raw_data, page_num=1)
+    q_page = count_page(5, len(reasons))
+    history_text = create_text_historys(raw_data=reasons.data, page_num=1)
     await message.answer(
         get_text(
             "history_info",
@@ -43,20 +40,15 @@ async def history_transfer(message: Message, state: FSMContext) -> None:
     F.data.split(":")[1].in_(["to_right", "to_left"]),
 )
 async def process_turn_right(query: CallbackQuery, state: FSMContext) -> None:
-    raw_data = flow_db.get_all_line_key(
-        key="id, reason, owner_reason, date, num",
-        order="date",
-        table="history_reasons",
-    )
-    raw_data = [history for history in raw_data if history['id'] == str(query.from_user.id)]
-    q_page = count_page(5, len(raw_data))
-    page = int(query.data.split(":")[-1])
-    if query.data.split(":")[1] == "turn_right":
+    reasons = Reasons('5255757696')
+    q_page = count_page(5, len(reasons))
+    page = int(float(query.data.split(":")[-1]))
+    if query.data.split(":")[1] == "to_right":
         page = page + 1 if page < q_page else 1
     else:
         page = page - 1 if page > 1 else q_page
 
-    history_text = create_text_historys(raw_data=raw_data, page_num=page)
+    history_text = create_text_historys(raw_data=reasons.data, page_num=page)
     await bot.edit_message_text(
         chat_id=query.from_user.id,
         message_id=query.message.message_id,

@@ -20,6 +20,8 @@ from aiogram.types import (
 )
 from aiogram.utils.deep_linking import create_start_link
 
+from tool_classes import User
+
 # result: 'https://t.me/MyBot?start=Zm9v'
 
 
@@ -29,22 +31,23 @@ async def chat_block(message: Message, state: FSMContext) -> None:
 
 
 @form_router.message(CommandStart(deep_link=True), Block(pass_if=False))
-async def command_start(message: Message, state: FSMContext, command: CommandObject) -> None:
-    arg = command.args
-    print(arg)
-    id_user = message.from_user.id
-    rule = flow_db.get_value(key="rule", where="id", meaning=id_user)
-    if rule == "admin":
+async def command_start(
+    message: Message, state: FSMContext, command: CommandObject
+) -> None:
+    # arg = command.args
+    # print(arg)
+    user = User(message.from_user.id)
+    if user.rule == "admin":
         await state.set_state(Admin.main)
         return await message.answer(
             get_text("again_work"),
             reply_markup=keyboard_markup.main_menu_admin(),
         )
-    if rule == "ban":
+    if user.rule == "ban":
         return await state.set_state(Ban.void)
-    if rule == "viewer":
+    if user.rule == "viewer":
         return await state.set_state(Viewer.main)
-    if flow_db.user_exists(id_user):
+    if flow_db.user_exists(user.id):
         return await message.answer(
             get_text("hi"),
             reply_markup=keyboard_markup.main_menu_user(),
@@ -86,29 +89,17 @@ async def process_fio(message: Message, state: FSMContext) -> None:
     FormReg.pending_review, F.data.split(":") == ["action", "confirm_reg", "admin"]
 )
 async def process_confirm_reg_admin(query: CallbackQuery, state: FSMContext) -> None:
-    id_user = query.from_user.id
+    user = User(query.from_user.id)
     data = await state.get_data()
-    flow_db.add_user(id_user)
-    flow_db.update_value(
-        key="username",
-        where="id",
-        meaning=id_user,
-        value=f"@{query.from_user.username}",
-    )
-    flow_db.update_value(
-        key="fio", where="id", meaning=id_user, value=data["fio"].strip()
-    )
-    flow_db.update_value(
-        key="date_reg",
-        where="id",
-        meaning=id_user,
-        value=get_current_date("%Y-%m-%d, %H:%M:%S"),
-    )
-    flow_db.update_value(key="rule", where="id", meaning=id_user, value="admin")
-    flow_db.update_value(key="balance_flow", where="id", meaning=id_user, value=0)
+    user = user[user.id]
+    user.username = f"@{query.from_user.username}"
+    user.fio = data["fio"].strip()
+    user.date_reg = get_current_date("%Y-%m-%d, %H:%M:%S")
+    user.rule = "admin"
+    user.balance_flow = 0
     await state.set_state(Admin.main)
     await bot.edit_message_text(
-        chat_id=id_user,
+        chat_id=user.id,
         message_id=query.message.message_id,
         text=get_text("registered"),
     )
@@ -123,29 +114,17 @@ async def process_confirm_reg_admin(query: CallbackQuery, state: FSMContext) -> 
     FormReg.pending_review, F.data.split(":") == ["action", "confirm_reg", "user"]
 )
 async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> None:
-    id_user = query.from_user.id
+    user = User(query.from_user.id)
     data = await state.get_data()
-    flow_db.add_user(id_user)
-    flow_db.update_value(
-        key="username",
-        where="id",
-        meaning=id_user,
-        value=f"@{query.from_user.username}",
-    )
-    flow_db.update_value(
-        key="fio", where="id", meaning=id_user, value=data["fio"].strip()
-    )
-    flow_db.update_value(
-        key="date_reg",
-        where="id",
-        meaning=id_user,
-        value=get_current_date("%Y-%m-%d, %H:%M:%S"),
-    )
-    flow_db.update_value(key="rule", where="id", meaning=id_user, value="user")
-    flow_db.update_value(key="balance_flow", where="id", meaning=id_user, value=0)
+    user = user[user.id]
+    user.username = f"@{query.from_user.username}"
+    user.fio = data["fio"].strip()
+    user.date_reg = get_current_date("%Y-%m-%d, %H:%M:%S")
+    user.rule = "user"
+    user.balance_flow = 0
     await state.clear()
     await bot.edit_message_text(
-        chat_id=id_user,
+        chat_id=user.id,
         message_id=query.message.message_id,
         text=get_text("registered"),
     )
@@ -160,29 +139,17 @@ async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> N
     FormReg.pending_review, F.data.split(":") == ["action", "confirm_reg", "viewer"]
 )
 async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> None:
-    id_user = query.from_user.id
+    user = User(query.from_user.id)
     data = await state.get_data()
-    flow_db.add_user(id_user)
-    flow_db.update_value(
-        key="username",
-        where="id",
-        meaning=id_user,
-        value=f"@{query.from_user.username}",
-    )
-    flow_db.update_value(
-        key="fio", where="id", meaning=id_user, value=data["fio"].strip()
-    )
-    flow_db.update_value(
-        key="date_reg",
-        where="id",
-        meaning=id_user,
-        value=get_current_date("%Y-%m-%d, %H:%M:%S"),
-    )
-    flow_db.update_value(key="rule", where="id", meaning=id_user, value="viewer")
-    flow_db.update_value(key="balance_flow", where="id", meaning=id_user, value=0)
+    user = user[user.id]
+    user.username = f"@{query.from_user.username}"
+    user.fio = data["fio"].strip()
+    user.date_reg = get_current_date("%Y-%m-%d, %H:%M:%S")
+    user.rule = "viewer"
+    user.balance_flow = 0
     await state.set_state(Viewer.main)
     await bot.edit_message_text(
-        chat_id=id_user,
+        chat_id=user.id,
         message_id=query.message.message_id,
         text=get_text("registered"),
     )
@@ -259,17 +226,15 @@ async def process_answer_on_request_user(
 async def process_answer_on_request_ban(
     query: CallbackQuery, state: FSMContext
 ) -> None:
-    id_user_to_ban = query.data.split(":")[2]
-    flow_db.add_user(id_user_to_ban)
-    flow_db.update_value(
-        key="username",
-        where="id",
-        meaning=id_user_to_ban,
-        value=f"@{query.from_user.username}",
-    )
-    flow_db.update_value(key="rule", where="id", meaning=id_user_to_ban, value="ban")
+    user = User(query.data.split(":")[2])
+    data = await state.get_data()
+    user = user[user.id]
+    user.username = f"@{query.from_user.username}"
+    user.date_reg = get_current_date("%Y-%m-%d, %H:%M:%S")
+    user.rule = "ban"
+    user.balance_flow = 0
     await bot.send_message(
-        chat_id=id_user_to_ban,
+        chat_id=user.id,
         text=get_text("ban"),
         reply_markup=ReplyKeyboardRemove(),
     )

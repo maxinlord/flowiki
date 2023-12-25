@@ -19,6 +19,11 @@ class Admin(StatesGroup):
     choice_preset_for_flownomika = State()
     choise_day_notify = State()
     choise_type_notify = State()
+    enter_name_item = State()
+    enter_description_item = State()
+    enter_price_item = State()
+    enter_quantity_item = State()
+    send_photo_item = State() 
 
 
 class Viewer(StatesGroup):

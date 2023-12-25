@@ -1,6 +1,6 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from own_utils import get_button, get_table_name, unwrap_2dd, weekday_tr
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from own_utils import get_button, get_table_name
+from tool_classes import Items
 
 
 def keyboard_for_rule(id_user):
@@ -98,9 +98,9 @@ def flownomika_list_users(
                 text=get_button(
                     "pattern_line_button_user",
                     throw_data={
-                        "name": user["name"],
+                        "fio": user["fio"],
                         "emoji": emoji,
-                        "balance": user["balance"],
+                        "balance_flow": user["balance_flow"],
                     },
                 ),
                 callback_data=f"action:select_user:{user['id']}:{user['select']}",
@@ -199,9 +199,9 @@ def presets_list_users(
                 text=get_button(
                     "pattern_line_button_user",
                     throw_data={
-                        "name": user["name"],
+                        "fio": user["fio"],
                         "emoji": emoji,
-                        "balance": user["balance"],
+                        "balance_flow": user["balance_flow"],
                     },
                 ),
                 callback_data=f"action:preset_select_user:{user['id']}:{user['select']}",
@@ -248,7 +248,7 @@ def menu_notifications(user_notifications):
     for notify in user_notifications:
         builder.button(
             text=get_button(
-                "pattern_notify", throw_data={"time_notify": unwrap_2dd(notify["time"])}
+                "pattern_notify", throw_data={"time_notify": notify["time"]}
             ),
             callback_data=f"action:tap_on_notify:{notify['id_notify']}",
         )
@@ -293,6 +293,9 @@ def menu_presets_for_notify(user_presets):
     return builder.as_markup()
 
 
+weekday_tr = {}
+
+
 def week_days():
     builder = InlineKeyboardBuilder()
     for day in weekday_tr:
@@ -335,7 +338,7 @@ def menu_reason(reasons, page_num: int = 1, size_one_page: int = 9):
                 text=get_button(
                     "pattern_name_reason",
                     throw_data={
-                        'emoji': emoji,
+                        "emoji": emoji,
                         "date": reason["date"],
                         "sername": reason["name"],
                         "part_of_reason": reason["reason"][:7],
@@ -368,3 +371,54 @@ def menu_reason(reasons, page_num: int = 1, size_one_page: int = 9):
 
 
 "{date} {sername} {part_of_reason}"
+
+
+def menu_items():
+    builder = InlineKeyboardBuilder()
+    items = Items()
+    for item in items:
+        builder.button(
+            text=get_button(
+                "pattern_button_inline_item",
+                throw_data={
+                    "name": item["name"],
+                },
+            ), callback_data=f"action:tap_on_item:{item['id']}",
+        )
+    builder.button(
+            text=get_button(
+                "add_item",
+            ), callback_data=f"action:add_item",
+        )
+    builder.adjust(1)
+    return builder.as_markup()
+
+def option_item():
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=get_button("edit_price"),
+        callback_data="action:edit_price",
+    )
+    builder.button(
+        text=get_button("reset_old_price"),
+        callback_data="action:reset_old_price",
+    )
+    builder.button(
+        text=get_button("edit_quantity"),
+        callback_data="action:edit_quantity",
+    )
+    builder.button(
+        text=get_button("back"),
+        callback_data="action:back_to_menu_item",
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+def skip_photo():
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=get_button("skip_photo"),
+        callback_data="action:skip_photo",
+    )
+    return builder.as_markup()
+

@@ -1,4 +1,5 @@
 from aiogram import F
+import keyboard_markup
 from own_utils import (
     get_button,
     get_text,
@@ -6,29 +7,31 @@ from own_utils import (
 )
 from dispatcher import main_router
 from init_db import flow_db
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
+
+from tool_classes import Users
 
 
 @main_router.message(F.text == get_button("top"))
 async def top_flow(message: Message, state: FSMContext) -> None:
-    raw_data = flow_db.get_all_line_key(
-        key="fio, balance_flow, rule", order="balance_flow"
-    )
+    users = Users(message.from_user.id)
     place, tops = 1, []
-    for i in raw_data:
-        if i["rule"] == "admin":
-            continue
+    for place, user in enumerate(users.to_dict_for_top, 1):
         tops.append(
             get_text(
                 "pattern_line_top",
                 throw_data={
-                    "fio": i["fio"],
-                    "balance": wrap(i["balance_flow"]),
+                    "fio": user["fio"],
+                    "balance_flow": wrap(user["balance_flow"]),
                     "place": place,
                 },
             )
         )
-        place += 1
     tops_text = "\n".join(tops)
-    await message.answer(get_text("top_info", throw_data={"list_top": tops_text}))
+    keyboard = ReplyKeyboardRemove()
+    if users.me.rule == 'user':
+        keyboard = keyboard_markup.main_menu_user()
+    if users.me.rule == 'admin':
+        keyboard = keyboard_markup.main_menu_admin()
+    await message.answer(get_text("top_info", throw_data={"list_top": tops_text}), reply_markup=keyboard)

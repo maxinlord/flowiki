@@ -1,3 +1,4 @@
+import contextlib
 from aiogram import F
 from own_utils import (
     count_page,
@@ -13,16 +14,15 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
 from state_classes import Admin
+from tool_classes import User
 
 
 @main_router.message(Admin.main, F.text == get_button("display"))
 async def display(message: Message, state: FSMContext) -> None:
-    display = flow_db.get_value(
-        table="users", key="display", where="id", meaning=message.from_user.id
-    )
+    user = User(message.from_user.id)
     await message.answer(
         text=get_text("menu_display"),
-        reply_markup=keyboard_inline.set_display(select=display),
+        reply_markup=keyboard_inline.set_display(select=user.display),
     )
 
 
@@ -33,20 +33,13 @@ async def display(message: Message, state: FSMContext) -> None:
     F.data.split(":")[2].in_(["display_sername_name", "display_name_sername"]),
 )
 async def set_display(query: CallbackQuery, state: FSMContext) -> None:
+    user = User(query.from_user.id)
     display = query.data.split(":")[2]
     await query.answer(cache_time=1)
-    flow_db.update_value(
-        table="users",
-        key="display",
-        where="id",
-        meaning=query.from_user.id,
-        value=display,
-    )
-    try:
+    user.display = display
+    with contextlib.suppress(Exception):
         await bot.edit_message_reply_markup(
             chat_id=query.from_user.id,
             message_id=query.message.message_id,
             reply_markup=keyboard_inline.set_display(display),
         ),
-    except:
-        pass

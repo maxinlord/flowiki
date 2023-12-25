@@ -1,9 +1,6 @@
 import contextlib
 import os
-import random
 from aiogram import F
-from filter_message import Block
-from handlers.start import command_start, process_fio
 from own_utils import (
     get_text,
     get_xlsx_table,
@@ -12,13 +9,12 @@ from own_utils import (
 )
 from dispatcher import main_router, bot
 from init_db import flow_db
-import keyboard_inline, keyboard_markup
+import keyboard_inline
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from state_classes import Admin, FormReg
+from state_classes import Admin
 from aiogram.types import FSInputFile
-from aiogram.filters import Command
 
 
 @main_router.message(Admin.main, F.text == "file")
@@ -58,23 +54,3 @@ async def handle_docs(message: Message):
 # @main_router.message(Command("update"))
 # async def update(message: Message, state: FSMContext) -> None:
 #     await all_mes(message, state)
-
-
-@main_router.message(Command(commands=["update"]), Block(pass_if=False))
-async def all_mes2(message: Message, state: FSMContext) -> None:
-    id_user = message.from_user.id
-    if not flow_db.user_exists(id_user):
-        return await command_start(message, state)
-    if not flow_db.rule_exists(id_user):
-        await state.set_state(FormReg.fio)
-        return await process_fio(message, state)
-    n = random.randint(1, 8)
-    rule = flow_db.get_value(key="rule", where="id", meaning=id_user)
-    if rule == "admin":
-        return await message.answer(
-            get_text(f"hi{n}"),
-            reply_markup=keyboard_markup.main_menu_admin(),
-        )
-    await message.answer(
-        text=get_text(f"hi{n}"), reply_markup=keyboard_markup.main_menu_user()
-    )

@@ -105,7 +105,7 @@ def get_dict_users():
     d_users = [
         {
             "name": i["fio"],
-            "balance": i["balance_flow"],
+            "balance_flow": i["balance_flow"],
             "select": False,
             "id": i["id"],
             "rule": i["rule"],
@@ -152,22 +152,7 @@ def wrap(
     )
 
 
-def wrap_2dd(text: str):  # sourcery skip: remove-unnecessary-cast
-    text = str(text)
-    sign_to_replace1 = "꠲"
-    sign_to_replace2 = "꠱"
-    text = text.replace(":", sign_to_replace1)
-    text = text.replace(",", sign_to_replace2)
-    return text
 
-
-def unwrap_2dd(text: str):  # sourcery skip: remove-unnecessary-cast
-    text = str(text)
-    sign_to_replace1 = "꠲"
-    sign_to_replace2 = "꠱"
-    text = text.replace(sign_to_replace1, ":")
-    text = text.replace(sign_to_replace2, ",")
-    return text
 
 
 def create_custom_id(len_tag: int = 8):
@@ -176,37 +161,21 @@ def create_custom_id(len_tag: int = 8):
     return f"custom:{tag}"
 
 
-def create_tag_for_preset(len_tag: int = 8):
-    signs = string.digits + string.ascii_letters
-    tag = "".join(random.choices(signs, k=len_tag))
-    return tag
-
-
-def create_tag_for_notify(len_tag: int = 8):
-    signs = string.digits + string.ascii_letters
-    tag = "".join(random.choices(signs, k=len_tag))
-    return tag
-
-def create_tag_for_reason(len_tag: int = 10):
-    signs = string.digits + string.ascii_letters
-    tag = "".join(random.choices(signs, k=len_tag))
-    return tag
-
 
 
 def view_selected_users(d_users: dict):
-    if l_user := [user["name"] for user in d_users if user["select"]]:
+    if l_user := [user["fio"] for user in d_users if user["select"]]:
         last = l_user.pop(-1)
         if l_user:
             return "\n     ├" + "\n     ├".join(l_user).strip(",") + f"\n     └{last}"
         return f"\n     └{last}"
-    return "Не указано"
+    return get_text('no_choise_users')
 
 
 def count_index_for_page(page_num, size_one_page):
     start = size_one_page * (page_num - 1)
     end = start + size_one_page
-    return start, end
+    return int(start), int(end)
 
 
 def create_text_historys(raw_data, page_num):
@@ -278,15 +247,7 @@ weekday = {
     5: "saturday",
     6: "sunday",
 }
-weekday_tr = {
-    "monday": "Понедельник",
-    "tuesday": "Вторник",
-    "wednesday": "Среда",
-    "thursday": "Четверг",
-    "friday": "Пятница",
-    "saturday": "Суббота",
-    "sunday": "Воскресенье",
-}
+
 
 
 def extract_date(text: str) -> str:  # sourcery skip: use-named-expression
@@ -330,7 +291,6 @@ async def clean_notification(id_user):
                 meaning=int(id_user),
                 unique_value_data="0",
             )
-            print('delete')
 
 
 def set_preset(id_user, id_preset_to_activate):

@@ -1,3 +1,4 @@
+from datetime import datetime
 import sqlite3
 
 
@@ -29,6 +30,15 @@ class BotDB:
             (id_user,),
         )
         return bool(len(result.fetchall()))
+    
+    def item_exists(self, id_item):
+        result = self.cur.execute(
+            "SELECT `id` \
+            FROM `items` \
+            WHERE `id` = ?",
+            (id_item,),
+        )
+        return bool(len(result.fetchall()))
 
     def rule_exists(self, id_user):
         result = self.cur.execute(
@@ -53,6 +63,22 @@ class BotDB:
         self.cur.execute(
             "INSERT INTO `history_reasons` (tag, id, reason, owner_reason, date, num) VALUES (?, ?, ?, ?, ?, ?)",
             (tag, id_user, reason, id_owner_reason, date, num),
+        )
+        return self.conn.commit()
+
+    def add_new_item(
+        self,
+        id_item: str,
+        name: str,
+        photo: str,
+        description: str,
+        price: str,
+        old_price,
+        quantity
+    ):
+        self.cur.execute(
+            "INSERT INTO `items` (id, name, photo, description, price, old_price, quantity) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (id_item, name, photo, description, price, old_price, quantity),
         )
         return self.conn.commit()
 
@@ -92,8 +118,8 @@ class BotDB:
     def get_value(self, key: str, where: str, meaning: str, table: str = "users"):
         result = self.cur.execute(
             f"SELECT {key} \
-                                    FROM '{table}' \
-                                    WHERE {where} = ?",
+            FROM '{table}' \
+            WHERE {where} = ?",
             (meaning,),
         )
         return result.fetchone()[0]
@@ -108,6 +134,23 @@ class BotDB:
             (meaning,),
         )
         return self.conn.commit()
+
+    def get_all_reasons(self, id_user):
+        query = f"SELECT tag, id, reason, owner_reason, date, num FROM history_reasons WHERE id = {id_user} ORDER BY date"
+        result = self.cur.execute(query).fetchall()
+        keys = ["tag", "id", "reason", "owner_reason", "date", "num"]
+        result_list = []
+        for piece in result:
+            piece_dict = {
+                keys[ind].strip(): particle for ind, particle in enumerate(piece)
+            }
+            result_list.append(piece_dict)
+
+        return sorted(
+            result_list,
+            key=lambda x: datetime.strptime(x["date"], "%d.%m.%Y"),
+            reverse=True,
+        )
 
     def get_all_line_key(
         self, key: str, table: str = "users", order: str = None, sort_by: str = "DESC"
@@ -155,10 +198,18 @@ class BotDB:
             key=key, where=where, meaning=meaning, table=table, value=data
         )
 
-    def parse_2dd(self, table: str, key: str, where: str, meaning: str):
+    def get_header_2dd(self, table: str, key: str, where: str, meaning: str):
         existing_data = self.get_value(
             key=key, where=where, meaning=meaning, table=table
         ).strip(",")
+        list_existing_data = existing_data.split(",")
+        headers = list_existing_data.pop(0).split(":")
+        return headers
+
+    def parse_2dd(self, table: str, key: str, where: str, meaning: str):
+        existing_data = self.get_value(
+            key=key, where=where, meaning=meaning, table=table
+        ).strip()
         list_existing_data = existing_data.split(",")
         headers = list_existing_data.pop(0).split(":")
         small_data, data = {}, []

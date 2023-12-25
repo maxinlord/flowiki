@@ -1,42 +1,26 @@
 from aiogram import F
 from own_utils import (
-    activate_preset,
-    count_page,
-    create_tag_for_notify,
-    create_tag_for_preset,
-    de_active_presets,
     delete_notification,
-    delete_preset,
     extract_date,
     extract_time,
     get_button,
-    get_dict_users,
-    get_text,
-    unwrap_2dd,
-    update_dict_users,
-    wrap_2dd,
-    weekday_tr
+    get_text
 )
 from dispatcher import main_router, bot
 import keyboard_inline, keyboard_markup
-from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
-from init_db import flow_db
 from state_classes import Admin
+from tool_classes import Notification, Preset, User
 
 
 @main_router.message(Admin.main, F.text == get_button("notifications"))
 async def notifications_admin(message: Message, state: FSMContext) -> None:
-    user_notifications = flow_db.parse_2dd(
-        table="users", key="notifications", where="id", meaning=message.from_user.id
-    )
-    user_notifications = [
-        notify for notify in user_notifications if notify["is_active"] == 1
-    ]
-    await state.update_data(user_notifications=user_notifications)
+    user = User(message.from_user.id)
+    await state.update_data(user_notifications=list(user.notification))
     await message.answer(
         text=get_text("menu_notification"),
-        reply_markup=keyboard_inline.menu_notifications(user_notifications),
+        reply_markup=keyboard_inline.menu_notifications(list(user.notification)),
     )
 
 
@@ -47,22 +31,17 @@ async def notifications_admin(message: Message, state: FSMContext) -> None:
 )
 async def tap_on_notify(query: CallbackQuery, state: FSMContext) -> None:
     id_notify = query.data.split(":")[-1]
+    notify = User(query.from_user.id).notification
+    notify.id_notify = id_notify
     await state.update_data(selected_notify=id_notify)
-    notifications = flow_db.parse_2dd(
-        table="users",
-        key="notifications",
-        where="id",
-        meaning=query.from_user.id
-    )
-    current_notify = [notify for notify in notifications if id_notify == notify['id_notify']][0]
     await bot.edit_message_text(
         text=get_text(
             "your_message_to_remind", throw_data={
-                "message": unwrap_2dd(current_notify['message']),
-                'time': unwrap_2dd(current_notify['time']),
-                'weekday': weekday_tr[current_notify['weekday']]}
+                "message": notify.message,
+                'time': notify.time,
+                'weekday': notify.weekday}
         ),
-        chat_id=query.from_user.id,
+        chat_id=notify.id_user,
         message_id=query.message.message_id,
         reply_markup=keyboard_inline.back_and_del_notify(),
     )
@@ -89,19 +68,11 @@ async def back_to_menu_notifications(query: CallbackQuery, state: FSMContext) ->
 async def del_notify(query: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     id_notify = data["selected_notify"]
+    notify = User(query.from_user.id).notification
     user_notifications = data["user_notifications"]
     user_notifications = delete_notification(user_notifications, id_notify)
     await state.update_data(user_notifications=user_notifications)
-    flow_db.update_value_2dd(
-        table="users",
-        key="notifications",
-        where="id",
-        meaning=query.from_user.id,
-        where_data="id_notify",
-        meaning_data=id_notify,
-        update_data="is_active",
-        value="0",
-    )
+    del notify[id_notify]
     await bot.edit_message_text(
         text=get_text("menu_notification"),
         chat_id=query.from_user.id,
@@ -205,12 +176,10 @@ async def get_time_notify(message: Message, state: FSMContext) -> None:
 async def get_message_to_remind(message: Message, state: FSMContext) -> None:
     await state.update_data(message_to_remind=message.text)
     await message.answer(text=get_text("message_writed"))
-    user_presets = flow_db.parse_2dd(
-        table="users", key="presets", where="id", meaning=message.from_user.id
-    )
+    preset = Preset(message.from_user.id)
     await message.answer(
         text=get_text("choice_preset_for_flownomika"),
-        reply_markup=keyboard_inline.menu_presets_for_notify(user_presets),
+        reply_markup=keyboard_inline.menu_presets_for_notify(list(preset)),
     )
     await state.set_state(Admin.choice_preset_for_flownomika)
 
@@ -223,27 +192,21 @@ async def get_message_to_remind(message: Message, state: FSMContext) -> None:
 async def tap_on_preset_notify(query: CallbackQuery, state: FSMContext) -> None:
     id_preset = query.data.split(":")[-1]
     data = await state.get_data()
-    flow_db.add_2dd(
-        table="users",
-        key="notifications",
-        where="id",
-        meaning=query.from_user.id,
-        throw_data=[
-            create_tag_for_notify(),
-            data['type_notify'],
-            data['weekday'],
-            wrap_2dd(data["time"]),
-            wrap_2dd(data["message_to_remind"]),
-            id_preset,
-            "1",
-        ],
-    )
+    notify = Notification(query.from_user.id)
+    notify.create_notify
+    notify.type_notify = data['type_notify']
+    notify.weekday = data['weekday']
+    notify.time = data["time"]
+    notify.message = data["message_to_remind"]
+    notify.id_preset = id_preset
+    notify.is_active = 1
+
     await state.set_state(Admin.main)
     await bot.delete_message(
         chat_id=query.from_user.id, message_id=query.message.message_id
     )
     await bot.send_message(
-        chat_id=query.from_user.id,
+        chat_id=notify.id_user,
         text=get_text("notify_created"),
         reply_markup=keyboard_markup.menu_options(),
     )
