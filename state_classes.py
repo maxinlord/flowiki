@@ -24,6 +24,8 @@ class Admin(StatesGroup):
     enter_price_item = State()
     enter_quantity_item = State()
     send_photo_item = State() 
+    enter_num_for_edit_price = State()
+    enter_num_for_edit_quantity = State()
 
 
 class Viewer(StatesGroup):

@@ -18,9 +18,8 @@ from aiogram.types import (
     Message,
     ReplyKeyboardRemove,
 )
-from aiogram.utils.deep_linking import create_start_link
 
-from tool_classes import User
+from tool_classes import Item, User
 
 # result: 'https://t.me/MyBot?start=Zm9v'
 
@@ -30,33 +29,65 @@ async def chat_block(message: Message, state: FSMContext) -> None:
     return
 
 
-@form_router.message(CommandStart(deep_link=True), Block(pass_if=False))
+@form_router.message(CommandStart(), Block(pass_if=False))
 async def command_start(
     message: Message, state: FSMContext, command: CommandObject
 ) -> None:
-    # arg = command.args
-    # print(arg)
+    if not flow_db.user_exists(message.from_user.id):
+        await state.set_state(FormReg.fio)
+        return await message.answer(
+            get_text("hi_reg"),
+            reply_markup=ReplyKeyboardRemove(),
+        )
     user = User(message.from_user.id)
+    arg = command.args
+    if arg and flow_db.item_exists(arg):
+        item = Item(arg)
+        keyboard = (
+            keyboard_inline.buy_item_user(who=user.id, id_item=arg)
+            if user.rule == "user"
+            else keyboard_inline.buy_item_admin(id_item=arg)
+        )
+        if item.photo == "-":
+            return await message.answer(
+                text=get_text(
+                    "item_display_for_purchase",
+                    throw_data={
+                        "name": item.name,
+                        "description": item.description,
+                        "price": item.price_str,
+                    },
+                ),
+                reply_markup=keyboard,
+            )
+        return await message.answer_photo(
+            photo=item.photo,
+            caption=get_text(
+                "item_display_for_purchase",
+                throw_data={
+                    "name": item.name,
+                    "description": item.description,
+                    "price": item.price_str,
+                },
+            ),
+            reply_markup=keyboard,
+        )
+
+    if user.rule == "user":
+        return await message.answer(
+            get_text("hi5"),
+            reply_markup=keyboard_markup.main_menu_user(),
+        )
     if user.rule == "admin":
         await state.set_state(Admin.main)
         return await message.answer(
-            get_text("again_work"),
+            get_text("hi5"),
             reply_markup=keyboard_markup.main_menu_admin(),
         )
     if user.rule == "ban":
         return await state.set_state(Ban.void)
     if user.rule == "viewer":
         return await state.set_state(Viewer.main)
-    if flow_db.user_exists(user.id):
-        return await message.answer(
-            get_text("hi"),
-            reply_markup=keyboard_markup.main_menu_user(),
-        )
-    await state.set_state(FormReg.fio)
-    await message.answer(
-        get_text("hi_reg"),
-        reply_markup=ReplyKeyboardRemove(),
-    )
 
 
 @form_router.message(FormReg.fio)
@@ -274,3 +305,32 @@ async def process_enter_repeat_fio(query: CallbackQuery, state: FSMContext) -> N
         message_id=query.message.message_id,
     )
     await state.set_state(FormReg.fio)
+
+
+@form_router.callback_query(
+    F.data.split(":")[0] == "action", F.data.split(":")[1] == "buy_item_user"
+)
+async def buy_item(query: CallbackQuery, state: FSMContext) -> None:
+    user = User(query.data.split(":")[2])
+    item = Item(query.data.split(":")[3])
+    if (item.quantity - 1) < 0:
+        return await query.answer(get_text("not_enough_items"), show_alert=True)
+    if (user.balance_flow - item.price) < 0:
+        return await query.answer(get_text("not_enough_flowik"), show_alert=True)
+    user.balance_flow -= item.price
+    item.quantity -= 1
+    await query.message.delete()
+    text_purchase = get_text("item_purchased", throw_data={"item_name": item.name})
+    await query.message.answer(text=text_purchase)
+    await bot.send_message(
+        chat_id=config.CHAT_ID,
+        message_thread_id=config.THREAD_ID_HISTORY,
+        text=text_purchase,
+    )
+
+
+@form_router.callback_query(
+    F.data.split(":")[0] == "action", F.data.split(":")[1] == "buy_item_admin"
+)
+async def buy_item(query: CallbackQuery, state: FSMContext) -> None:
+    pass

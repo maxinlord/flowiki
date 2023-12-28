@@ -23,7 +23,7 @@ from handlers import (
     notification,
     menu_for_delete_history_reason,
     stat_onlines,
-    # shop_items,
+    shop_items, 
     any_message,
 )
 from own_utils import clean_notification, is_date_today, set_preset

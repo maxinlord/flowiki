@@ -10,7 +10,7 @@ from own_utils import (
 )
 from dispatcher import main_router, bot
 import keyboard_inline, keyboard_markup
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 import config
 
@@ -19,7 +19,7 @@ from tool_classes import Item, Items, Reason, User, Users
 
 
 @main_router.message(Admin.main, F.text == get_button("items"))
-async def notifications_admin(message: Message, state: FSMContext) -> None:
+async def items_menu(message: Message, state: FSMContext) -> None:
     await message.answer(
         text=get_text("menu_items"),
         reply_markup=keyboard_inline.menu_items(),
@@ -43,7 +43,7 @@ async def tap_on_item(query: CallbackQuery, state: FSMContext) -> None:
                 throw_data={
                     "name": item.name,
                     "description": item.description,
-                    "price": item.price,
+                    "price": item.price_str,
                     "quantity": item.quantity,
                 },
             ),
@@ -61,7 +61,7 @@ async def tap_on_item(query: CallbackQuery, state: FSMContext) -> None:
             throw_data={
                 "name": item.name,
                 "description": item.description,
-                "price": item.price,
+                "price": item.price_str,
                 "quantity": item.quantity,
             },
         ),
@@ -76,11 +76,11 @@ async def tap_on_item(query: CallbackQuery, state: FSMContext) -> None:
 )
 async def back_to_menu_item(query: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
-    if Item(data['selected_item']).photo == '-':
+    if Item(data["selected_item"]).photo == "-":
         return await bot.edit_message_text(
             chat_id=query.from_user.id,
             message_id=query.message.message_id,
-            text=get_text('menu_items'),
+            text=get_text("menu_items"),
             reply_markup=keyboard_inline.menu_items(),
         )
     await bot.delete_message(
@@ -88,10 +88,181 @@ async def back_to_menu_item(query: CallbackQuery, state: FSMContext) -> None:
         message_id=query.message.message_id,
     )
     await bot.send_message(
-            chat_id=query.from_user.id,
-            text=get_text('menu_items'),
-            reply_markup=keyboard_inline.menu_items(),
+        chat_id=query.from_user.id,
+        text=get_text("menu_items"),
+        reply_markup=keyboard_inline.menu_items(),
+    )
+
+
+@main_router.callback_query(
+    Admin.main,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1] == "del_item",
+)
+async def del_item(query: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    del Items()[data['selected_item']]
+    await query.message.delete()
+    await items_menu(query.message, state)
+
+
+@main_router.callback_query(
+    Admin.main,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1] == "get_qr_code",
+)
+async def send_qr_code(query: CallbackQuery, state: FSMContext) -> None:
+    await query.answer(cache_time=1)
+    data = await state.get_data()
+    id_item = data["selected_item"]
+    item = Item(id_item)
+    file_name = item.name + ".png"
+    await bot.send_document(
+        chat_id=query.from_user.id,
+        document=FSInputFile(path=item.generate_qr_code(), filename=file_name),
+    )
+
+
+@main_router.callback_query(
+    Admin.main,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1] == "edit_quantity",
+)
+async def edit_quantity(query: CallbackQuery, state: FSMContext) -> None:
+    await bot.delete_message(
+        chat_id=query.from_user.id, message_id=query.message.message_id
+    )
+    await bot.send_message(
+        chat_id=query.from_user.id, text=get_text("enter_num_for_edit_quantity")
+    )
+    await state.set_state(Admin.enter_num_for_edit_quantity)
+
+
+@main_router.message(Admin.enter_num_for_edit_quantity)
+async def enter_num_for_edit_quantity(message: Message, state: FSMContext) -> None:
+    if not message.text.isnumeric():
+        return
+    data = await state.get_data()
+    item = Item(data["selected_item"])
+    item.quantity = message.text
+    await state.set_state(Admin.main)
+    if item.photo == "-":
+        return await message.answer(
+            text=get_text(
+                "item_parametrs",
+                throw_data={
+                    "name": item.name,
+                    "description": item.description,
+                    "price": item.price_str,
+                    "quantity": item.quantity,
+                },
+            ),
+            reply_markup=keyboard_inline.option_item(),
         )
+    await message.answer_photo(
+        photo=item.photo,
+        caption=get_text(
+            "item_parametrs",
+            throw_data={
+                "name": item.name,
+                "description": item.description,
+                "price": item.price_str,
+                "quantity": item.quantity,
+            },
+        ),
+        reply_markup=keyboard_inline.option_item(),
+    )
+
+
+@main_router.callback_query(
+    Admin.main,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1] == "edit_price",
+)
+async def edit_price(query: CallbackQuery, state: FSMContext) -> None:
+    await bot.delete_message(
+        chat_id=query.from_user.id, message_id=query.message.message_id
+    )
+    await bot.send_message(
+        chat_id=query.from_user.id, text=get_text("enter_num_for_edit_price")
+    )
+    await state.set_state(Admin.enter_num_for_edit_price)
+
+
+@main_router.message(Admin.enter_num_for_edit_price)
+async def get_num_for_edit_price_item(message: Message, state: FSMContext) -> None:
+    if not message.text.isnumeric():
+        return
+    data = await state.get_data()
+    item = Item(data["selected_item"])
+    item.price = message.text
+    await state.set_state(Admin.main)
+    if item.photo == "-":
+        return await message.answer(
+            text=get_text(
+                "item_parametrs",
+                throw_data={
+                    "name": item.name,
+                    "description": item.description,
+                    "price": item.price_str,
+                    "quantity": item.quantity,
+                },
+            ),
+            reply_markup=keyboard_inline.option_item(),
+        )
+    await message.answer_photo(
+        photo=item.photo,
+        caption=get_text(
+            "item_parametrs",
+            throw_data={
+                "name": item.name,
+                "description": item.description,
+                "price": item.price_str,
+                "quantity": item.quantity,
+            },
+        ),
+        reply_markup=keyboard_inline.option_item(),
+    )
+
+
+@main_router.callback_query(
+    Admin.main,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1] == "reset_old_price",
+)
+async def reset_old_price(query: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    item = Item(data["selected_item"])
+    item.old_price = 0
+    if item.photo == "-":
+        return await bot.edit_message_text(
+            chat_id=query.from_user.id,
+            message_id=query.message.message_id,
+            text=get_text(
+                "item_parametrs",
+                throw_data={
+                    "name": item.name,
+                    "description": item.description,
+                    "price": item.price_str,
+                    "quantity": item.quantity,
+                },
+            ),
+            reply_markup=keyboard_inline.option_item(),
+        )
+    await bot.edit_message_caption(
+        chat_id=query.from_user.id,
+        message_id=query.message.message_id,
+        caption=get_text(
+            "item_parametrs",
+            throw_data={
+                "name": item.name,
+                "description": item.description,
+                "price": item.price_str,
+                "quantity": item.quantity,
+            },
+        ),
+        reply_markup=keyboard_inline.option_item(),
+    )
 
 
 @main_router.callback_query(

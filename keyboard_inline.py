@@ -400,18 +400,26 @@ def option_item():
         callback_data="action:edit_price",
     )
     builder.button(
+        text=get_button("edit_quantity"),
+        callback_data="action:edit_quantity",
+    )
+    builder.button(
         text=get_button("reset_old_price"),
         callback_data="action:reset_old_price",
     )
     builder.button(
-        text=get_button("edit_quantity"),
-        callback_data="action:edit_quantity",
+        text=get_button("get_qr_code"),
+        callback_data="action:get_qr_code",
+    )
+    builder.button(
+        text=get_button("del_item"),
+        callback_data="action:del_item",
     )
     builder.button(
         text=get_button("back"),
         callback_data="action:back_to_menu_item",
     )
-    builder.adjust(1)
+    builder.adjust(1, 1, 1, 3)
     return builder.as_markup()
 
 def skip_photo():
@@ -422,3 +430,18 @@ def skip_photo():
     )
     return builder.as_markup()
 
+def buy_item_user(who, id_item):
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=get_button("buy_item"),
+        callback_data=f"action:buy_item_user:{who}:{id_item}",
+    )
+    return builder.as_markup()
+
+def buy_item_admin(id_item):
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=get_button("buy_item"),
+        callback_data=f"action:buy_item_admin:{id_item}",
+    )
+    return builder.as_markup()

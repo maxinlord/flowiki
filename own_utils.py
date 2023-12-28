@@ -115,23 +115,6 @@ def get_dict_users():
     return d_users
 
 
-def get_dict_users_with_filter(id_user):
-    display = flow_db.get_value(
-        table="users", key="display", where="id", meaning=id_user
-    )
-    d_users = get_dict_users()
-    ids = get_admin_preset(id_user)
-    if display:
-        for user in d_users:
-            if display == "display_name_sername":
-                name = " ".join(user["name"].split(" ")[::-1])
-                user["name"] = name
-    if not ids:
-        return [user for user in d_users if user["rule"] == "user"]
-    d_users = [user for user in d_users if str(user["id"]) in ids]
-    return d_users
-
-
 def wrap(
     num: int,
     q_signs_after_comma: int = 2,
@@ -218,24 +201,6 @@ def delete_preset(user_presets, id_preset):
 
 def delete_notification(user_notifications, id_notify):
     return [notify for notify in user_notifications if notify["id_notify"] != id_notify]
-
-
-def get_admin_preset(id_user) -> list:
-    presets = flow_db.parse_2dd(
-        table="users", key="presets", where="id", meaning=id_user
-    )
-    if not presets:
-        return []
-    row_ids = [preset["ids"] for preset in presets if preset["is_active"] == 1]
-    if not row_ids:
-        return []
-    row_ids = row_ids[0]
-    ids = (
-        [str(row_ids)]
-        if isinstance(row_ids, int)
-        else unwrap_2dd(row_ids).split(',')
-    )
-    return ids
 
 
 weekday = {

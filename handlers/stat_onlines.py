@@ -31,6 +31,8 @@ async def command_stat_online(
     stats = ""
     for id_user in User('pass'):
         user = User(id_user)
+        if not user.last_tap_date:
+            continue
         line = get_text(
             "pattern_line_for_stat_online",
             throw_data={"name": user.fio, "date_online": user.last_tap_date, "button": user.last_tap_button},

@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 from pprint import pprint
 import random
 import string
@@ -470,7 +471,7 @@ class User(Model):
             time = datetime.strptime(self.__get("last_tap_date"), '%d.%m.%Y, %H:%M:%S')
             was_online = datetime.now() - time
             return str(was_online).split('.')[0]
-        return 'Нет данных'
+        return None
 
     @last_tap_date.setter
     def last_tap_date(self, value):
@@ -480,7 +481,7 @@ class User(Model):
     def last_tap_button(self):
         if self.__get("last_tap_button"):
             return self.__get("last_tap_button")
-        return 'Нет данных'
+        return None
 
     @last_tap_button.setter
     def last_tap_button(self, value):
@@ -719,12 +720,16 @@ class Item:
         self.__update(name_value="description", value=value)
 
     @property
-    def price(self):
+    def price_str(self):
         if self.old_price == 0:
-            return self.__get("price")
+            return f'{self.__get("price")}f'
         price = self.__get("price")
         discount = int((price * 100) / self.old_price) - 100
         return f"<s>{self.old_price}</s> {price}f ({discount}%)"
+
+    @property
+    def price(self):
+        return self.__get("price")
 
     @price.setter
     def price(self, value):
@@ -763,9 +768,10 @@ class Item:
         qr.add_data(link)
         qr.make(fit=True)
 
-        img = qr.make_image(fill_color="#ffffff", back_color="#000000")
+        img = qr.make_image(fill_color="#000000", back_color="#ffffff")
         file_name = f"item_{self.id_item}.png"
-        img.save(file_name)
+        if not os.path.exists(file_name):
+             img.save(file_name)    
         return file_name
 
 
