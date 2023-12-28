@@ -310,7 +310,7 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
         reason.reason = text_reason
         reason.owner_reason = message.from_user.id
         reason.num = data["num"]
-        User(user["id"]).balance_flow += data["num"]
+        User(user["id"]).balance_flow += int(data["num"])
     await message.answer(
         get_text("reason_recorded"),
         reply_markup=keyboard_markup.main_menu_admin(),
