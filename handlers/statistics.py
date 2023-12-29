@@ -2,6 +2,7 @@ from dispatcher import main_router, form_router
 from aiogram import F
 from filter_message import Block, state_is_none
 from own_utils import (
+    get_all_users_visit,
     get_button,
     get_current_date,
     get_text,
@@ -19,25 +20,18 @@ from aiogram.types import (
     Message,
     ReplyKeyboardRemove,
 )
+from aiogram.utils.deep_linking import create_start_link
 
 from tool_classes import User
 
-# stat_command = get_text('stat_online')
 
-@main_router.message(Command(commands=['online']))
-async def command_stat_online(
-    message: Message, state: FSMContext, command: CommandObject
-) -> None:
-    stats = ""
-    for id_user in User('pass'):
-        user = User(id_user)
-        if not user.last_tap_date:
-            continue
-        line = get_text(
-            "pattern_line_for_stat_online",
-            throw_data={"name": user.fio, "date_online": user.last_tap_date, "button": user.last_tap_button},
-        )
-        stats += f'{line}\n'
-
-    await message.answer(text=get_text("stat_online", throw_data={'stat': stats}))
-
+@main_router.message(F.text == get_button("statistics"))
+async def statistics(message: Message, state: FSMContext) -> None:
+    total_num_of_flowiki = flow_db.get_total_num_of_flowiki()
+    avg_num_flowiki = flow_db.get_average_num_of_flowiki()
+    visits = get_all_users_visit()
+    await message.answer(get_text('statistics', throw_data={
+        'total_flowiki': total_num_of_flowiki,
+        'avg_flowiki': avg_num_flowiki,
+        'visits': visits
+    }))

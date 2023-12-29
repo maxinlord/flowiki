@@ -68,17 +68,22 @@ async def process_enter_another_quantity(
 ) -> None:
     side = query.data.split(":")[-1]
     await state.update_data(side=side)
-    await bot.edit_message_text(
-        chat_id=query.from_user.id,
-        message_id=query.message.message_id,
+    await query.message.delete()
+    await query.message.answer(
         text=get_text("enter_another_quantity"),
-        reply_markup=None,
+        reply_markup=keyboard_markup.cancel(),
     )
     await state.set_state(Admin.enter_another_quantity)
 
 
 @main_router.message(Admin.enter_another_quantity)
 async def enter_another_quantity(message: Message, state: FSMContext) -> None:
+    if message.text == get_button("cancel"):
+        await state.set_state(Admin.main)
+        await message.answer(
+            text=get_text("canceled"), reply_markup=keyboard_markup.main_menu_admin()
+        )
+        return await flownomika(message, state)
     if not message.text.isnumeric():
         return
     data = await state.get_data()

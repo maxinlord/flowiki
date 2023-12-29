@@ -293,7 +293,15 @@ def menu_presets_for_notify(user_presets):
     return builder.as_markup()
 
 
-weekday_tr = {}
+weekday_tr = {
+    "monday": 'Понедельник',
+    "tuesday": 'Вторник',
+    "wednesday": 'Среда',
+    "thursday": 'Четверг',
+    "friday": 'Пятница',
+    "saturday": 'Суббота',
+    "sunday": 'Воскресенье',
+}
 
 
 def week_days():
@@ -386,10 +394,11 @@ def menu_items():
             ), callback_data=f"action:tap_on_item:{item['id']}",
         )
     builder.button(
-            text=get_button(
-                "add_item",
-            ), callback_data=f"action:add_item",
-        )
+        text=get_button(
+            "add_item",
+        ),
+        callback_data="action:add_item",
+    )
     builder.adjust(1)
     return builder.as_markup()
 
@@ -444,4 +453,36 @@ def buy_item_admin(id_item):
         text=get_button("buy_item"),
         callback_data=f"action:buy_item_admin:{id_item}",
     )
+    return builder.as_markup()
+
+def buy_item_list_users(
+    list_users: list,
+    size_one_page: int = 5,
+    page_num: int = 1,
+):
+    builder = InlineKeyboardBuilder()
+    grid_size = 0
+    for num, user in enumerate(list_users):
+        user: dict
+        if (size_one_page * page_num) - size_one_page <= num < size_one_page * page_num:
+            builder.button(
+                text=get_button(
+                    "pattern_line_button_user_buy_item",
+                    throw_data={
+                        "fio": user["fio"],
+                        "balance_flow": user["balance_flow"],
+                    },
+                ),
+                callback_data=f"action:buy_item_select_user:{user['id']}",
+            )
+            grid_size += 1
+    builder.button(
+        text=get_button("arrow_left"),
+        callback_data=f"action:buy_item_turn_left:{page_num}",
+    )
+    builder.button(
+        text=get_button("arrow_right"),
+        callback_data=f"action:buy_item_turn_right:{page_num}",
+    )
+    builder.adjust(*[1 for _ in range(grid_size)], 2)
     return builder.as_markup()

@@ -335,9 +335,9 @@ async def end_create_item(query: CallbackQuery, state: FSMContext) -> None:
     item.description = data["description_item"]
     item.price = data["price_item"]
     item.quantity = data["quantity_item"]
-    await bot.send_message(
-        chat_id=query.from_user.id,
+    await query.message.edit_text(
         text=get_text("item_created"),
+        reply_markup=None
     )
     await state.set_state(Admin.main)
 

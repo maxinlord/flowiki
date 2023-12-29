@@ -17,7 +17,7 @@ from tool_classes import Users
 async def top_flow(message: Message, state: FSMContext) -> None:
     users = Users(message.from_user.id)
     place, tops = 1, []
-    for place, user in enumerate(users.to_dict_for_top, 1):
+    for place, user in enumerate(users.to_dict_without_display, 1):
         tops.append(
             get_text(
                 "pattern_line_top",

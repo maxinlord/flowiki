@@ -2,6 +2,7 @@ from dispatcher import main_router, form_router
 from aiogram import F
 from filter_message import Block, state_is_none
 from own_utils import (
+    count_page,
     get_current_date,
     get_text,
 )
@@ -19,7 +20,7 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 
-from tool_classes import Item, User
+from tool_classes import Item, User, Users
 
 # result: 'https://t.me/MyBot?start=Zm9v'
 
@@ -310,7 +311,7 @@ async def process_enter_repeat_fio(query: CallbackQuery, state: FSMContext) -> N
 @form_router.callback_query(
     F.data.split(":")[0] == "action", F.data.split(":")[1] == "buy_item_user"
 )
-async def buy_item(query: CallbackQuery, state: FSMContext) -> None:
+async def buy_item_user(query: CallbackQuery, state: FSMContext) -> None:
     user = User(query.data.split(":")[2])
     item = Item(query.data.split(":")[3])
     if (item.quantity - 1) < 0:
@@ -330,7 +331,77 @@ async def buy_item(query: CallbackQuery, state: FSMContext) -> None:
 
 
 @form_router.callback_query(
-    F.data.split(":")[0] == "action", F.data.split(":")[1] == "buy_item_admin"
+    Admin.main,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1] == "buy_item_admin",
 )
-async def buy_item(query: CallbackQuery, state: FSMContext) -> None:
-    pass
+async def buy_item_admin(query: CallbackQuery, state: FSMContext) -> None:
+    list_users = Users(query.from_user.id).to_dict_without_display
+    await state.update_data(buy_item_users=list_users, id_item=query.data.split(":")[2])
+    await query.message.edit_reply_markup(
+        reply_markup=keyboard_inline.buy_item_list_users(
+            list_users=list_users, page_num=1
+        )
+    )
+
+
+@main_router.callback_query(
+    Admin.main,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1].in_(["buy_item_turn_left", "buy_item_turn_right"]),
+)
+async def buy_item_turn(query: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    q_page = count_page(5, len(data["buy_item_users"]))
+    if q_page == 1:
+        return
+    page = int(query.data.split(":")[-1].split(".")[0])
+    if query.data.split(":")[1] == "preset_turn_left":
+        page = page - 1 if page > 1 else q_page
+    else:
+        page = page + 1 if page < q_page else 1
+    await query.message.edit_reply_markup(
+        reply_markup=keyboard_inline.buy_item_list_users(
+            list_users=data["buy_item_users"],
+            page_num=page,
+        ),
+    )
+
+
+@main_router.callback_query(
+    Admin.main,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1] == "buy_item_select_user",
+)
+async def buy_item_buy_for_selected_user(
+    query: CallbackQuery, state: FSMContext
+) -> None:
+    query_data = query.data.split(":")
+    data = await state.get_data()
+    id_user = (
+        query_data[2]
+        if query_data[2] != "custom"
+        else f"{query_data[2]}:{query_data[3]}"
+    )
+    user = User(id_user)
+    item = Item(data["id_item"])
+    if (item.quantity - 1) < 0:
+        return await query.answer(get_text("not_enough_items"), show_alert=True)
+    if (user.balance_flow - item.price) < 0:
+        return await query.answer(get_text("not_enough_flowik"), show_alert=True)
+    user.balance_flow -= item.price
+    item.quantity -= 1
+    await query.message.delete()
+    await query.message.answer(
+        text=get_text("item_purchased", throw_data={"item_name": item.name})
+    )
+    ref_user_throw_name = f'<a href="https://t.me/@id{user.id}">{user.fio}</a>'
+    await bot.send_message(
+        chat_id=config.CHAT_ID,
+        message_thread_id=config.THREAD_ID_HISTORY,
+        text=get_text(
+            "item_purchased",
+            throw_data={"item_name": item.name, "fio": ref_user_throw_name},
+        ),
+        disable_notification=True
+    )

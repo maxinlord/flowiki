@@ -551,11 +551,11 @@ class Users:
         return edited_users_list
 
     @property
-    def to_dict_for_top(self) -> list:
+    def to_dict_without_display(self) -> list:
         users = flow_db.get_all_line_key(
             key="rule, fio, id, balance_flow", order="balance_flow"
         )
-        users = self.__filter(users, rule="user")
+        users = [user for user in users if user['rule'] == 'user']
         users = self.__display(users)
         return users
 

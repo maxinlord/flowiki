@@ -30,7 +30,7 @@ class BotDB:
             (id_user,),
         )
         return bool(len(result.fetchall()))
-    
+
     def item_exists(self, id_item):
         result = self.cur.execute(
             "SELECT `id` \
@@ -74,7 +74,7 @@ class BotDB:
         description: str,
         price: str,
         old_price,
-        quantity
+        quantity,
     ):
         self.cur.execute(
             "INSERT INTO `items` (id, name, photo, description, price, old_price, quantity) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -151,6 +151,21 @@ class BotDB:
             key=lambda x: datetime.strptime(x["date"], "%d.%m.%Y"),
             reverse=True,
         )
+
+    def get_total_num_of_flowiki(self):
+        query = """SELECT SUM(balance_flow) FROM users WHERE rule = 'user'"""
+        result = self.cur.execute(query).fetchone()[0]
+        return result
+
+    def get_average_num_of_flowiki(self):
+        query = """SELECT AVG(balance_flow) FROM users WHERE rule = 'user'"""
+        result = self.cur.execute(query).fetchone()[0]
+        return round(result, 2)
+    
+    def get_num_of_visits_user(self, id_user):
+        query = """SELECT COUNT(id) FROM history_reasons WHERE id = ?"""
+        result = self.cur.execute(query, (id_user,)).fetchone()[0]
+        return result
 
     def get_all_line_key(
         self, key: str, table: str = "users", order: str = None, sort_by: str = "DESC"

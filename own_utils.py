@@ -62,7 +62,6 @@ def update_dict_users(id_user: str, dict_users: list) -> list:
     return dict_users
 
 
-
 def count_page(size_one_page, quantity_users) -> int:
     if quantity_users % size_one_page == 0:
         return quantity_users / size_one_page
@@ -135,15 +134,10 @@ def wrap(
     )
 
 
-
-
-
 def create_custom_id(len_tag: int = 8):
     signs = string.digits + string.ascii_letters
     tag = "".join(random.choices(signs, k=len_tag))
     return f"custom:{tag}"
-
-
 
 
 def view_selected_users(d_users: dict):
@@ -152,7 +146,7 @@ def view_selected_users(d_users: dict):
         if l_user:
             return "\n     ├" + "\n     ├".join(l_user).strip(",") + f"\n     └{last}"
         return f"\n     └{last}"
-    return get_text('no_choise_users')
+    return get_text("no_choise_users")
 
 
 def count_index_for_page(page_num, size_one_page):
@@ -212,7 +206,6 @@ weekday = {
     5: "saturday",
     6: "sunday",
 }
-
 
 
 def extract_date(text: str) -> str:  # sourcery skip: use-named-expression
@@ -296,14 +289,34 @@ def set_preset(id_user, id_preset_to_activate):
     except:
         pass
 
+
 def get_all_reason():
-    data = flow_db.get_all_line_key(table='history_reasons', key='tag, id, reason, date, num')[::-1]
+    data = flow_db.get_all_line_key(
+        table="history_reasons", key="tag, id, reason, date, num"
+    )[::-1]
     update_data = []
     for reason in data:
-        reason['name'] = flow_db.get_value(key='fio', where='id', meaning=reason['id']).split(' ')[0]
-        reason['is_choose'] = False
+        reason["name"] = flow_db.get_value(
+            key="fio", where="id", meaning=reason["id"]
+        ).split(" ")[0]
+        reason["is_choose"] = False
         update_data.append(reason)
-    return update_data 
+    return update_data
+
+
+def get_all_users_visit():
+    users = flow_db.get_all_line_key(key="id, rule, fio")
+    users = [user for user in users if user["rule"] == "user"]
+    text = "\n".join(
+        get_text(
+            "patter_line_stat_visit",
+            throw_data={"quantity_visit": flow_db.get_num_of_visits_user(user["id"]),
+                        'fio': user['fio']},
+        )
+        for user in users
+    )
+    return text
+
 
 def update_dict_reasons(tag_reason: str, dict_reasons: list) -> list:
     for num, i in enumerate(dict_reasons):
@@ -311,10 +324,14 @@ def update_dict_reasons(tag_reason: str, dict_reasons: list) -> list:
             dict_reasons[num]["is_choose"] = not dict_reasons[num]["is_choose"]
     return dict_reasons
 
+
 def delete_choose_reasons(reasons: list):
     for reason in reasons:
-        flow_db.delete(table='history_reasons', where='tag', meaning=reason['tag'])
-        flow_db.add_value(key='balance_flow', where='id', meaning=reason['id'], value=-reason['num'])
+        flow_db.delete(table="history_reasons", where="tag", meaning=reason["tag"])
+        flow_db.add_value(
+            key="balance_flow", where="id", meaning=reason["id"], value=-reason["num"]
+        )
+
 
 # data = get_data_users()
 # print(filter_(data, rule="user"))
