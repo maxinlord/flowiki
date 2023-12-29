@@ -36,6 +36,7 @@
 *.app
 *.xlsx
 *.pyc
+*.png
 
 /config.py
 venv

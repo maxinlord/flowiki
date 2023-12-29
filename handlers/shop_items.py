@@ -116,7 +116,7 @@ async def send_qr_code(query: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     id_item = data["selected_item"]
     item = Item(id_item)
-    file_name = item.name + ".png"
+    file_name = f"{item.name}.png"
     await bot.send_document(
         chat_id=query.from_user.id,
         document=FSInputFile(path=item.generate_qr_code(), filename=file_name),
