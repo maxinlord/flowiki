@@ -1,3 +1,4 @@
+import contextlib
 from datetime import datetime
 import os
 from pprint import pprint
@@ -426,6 +427,13 @@ class User(Model):
         self.__update(name_value="fio", value=value)
 
     @property
+    def emoji(self):
+        return self.__get("emoji")
+
+    @emoji.setter
+    def emoji(self, value):
+        self.__update(name_value="emoji", value=value)
+    @property
     def username(self):
         return self.__get("username")
 
@@ -500,7 +508,7 @@ class User(Model):
 
 
 class Users:
-    def __init__(self, id_user) -> None:
+    def __init__(self, id_user=None) -> None:
         self.me: User = User(id_user)
         self.id_user = id_user
 
@@ -551,9 +559,27 @@ class Users:
         return edited_users_list
 
     @property
+    def to_dict_for_mailing(self) -> list:
+        users = flow_db.get_all_line_key(
+            key="rule, fio, id, balance_flow", order="fio", sort_by="ASC"
+        )
+        edited_users_list = [
+            {
+                "fio": user["fio"],
+                "balance_flow": user["balance_flow"],
+                "select": False,
+                "id": user["id"],
+                "rule": user["rule"],
+            }
+            for user in users
+            if user['id'].split(':')[0] != 'custom'
+        ]
+        return edited_users_list
+
+    @property
     def to_dict_without_display(self) -> list:
         users = flow_db.get_all_line_key(
-            key="rule, fio, id, balance_flow", order="balance_flow"
+            key="rule, fio, id, balance_flow, emoji", order="balance_flow"
         )
         users = [user for user in users if user['rule'] == 'user']
         users = self.__display(users)
@@ -796,6 +822,8 @@ class Items:
         return Item(id_item)
 
     def __del_item(self, id_item):
+        with contextlib.suppress(Exception):
+            os.remove(f"item_{id_item}.png")
         flow_db.delete(
             table="items",
             where="id",
@@ -818,6 +846,7 @@ class Items:
         self.__del_item(id_item=key)
 
 
+# print(Users().to_dict_for_mailing)
 # item = Items()['new_item']
 # print(item.id_item)
 # u = User('474701274')

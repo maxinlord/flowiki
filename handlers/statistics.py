@@ -1,28 +1,18 @@
-from dispatcher import main_router, form_router
+from dispatcher import main_router
 from aiogram import F
-from filter_message import Block, state_is_none
 from own_utils import (
     get_all_users_visit,
     get_button,
-    get_current_date,
     get_text,
 )
-from dispatcher import bot
-from routers_bot import main_router, form_router
+from routers_bot import main_router
 from init_db import flow_db
-import keyboard_inline, keyboard_markup
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
-import config
-from aiogram.filters import CommandStart, CommandObject, Command
-from state_classes import Admin, Ban, FormReg, Viewer
 from aiogram.types import (
     Message,
-    ReplyKeyboardRemove,
 )
-from aiogram.utils.deep_linking import create_start_link
 
-from tool_classes import User
 
 
 @main_router.message(F.text == get_button("statistics"))

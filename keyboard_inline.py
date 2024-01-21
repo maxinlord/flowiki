@@ -294,13 +294,13 @@ def menu_presets_for_notify(user_presets):
 
 
 weekday_tr = {
-    "monday": 'Понедельник',
-    "tuesday": 'Вторник',
-    "wednesday": 'Среда',
-    "thursday": 'Четверг',
-    "friday": 'Пятница',
-    "saturday": 'Суббота',
-    "sunday": 'Воскресенье',
+    "monday": "Понедельник",
+    "tuesday": "Вторник",
+    "wednesday": "Среда",
+    "thursday": "Четверг",
+    "friday": "Пятница",
+    "saturday": "Суббота",
+    "sunday": "Воскресенье",
 }
 
 
@@ -391,7 +391,8 @@ def menu_items():
                 throw_data={
                     "name": item["name"],
                 },
-            ), callback_data=f"action:tap_on_item:{item['id']}",
+            ),
+            callback_data=f"action:tap_on_item:{item['id']}",
         )
     builder.button(
         text=get_button(
@@ -401,6 +402,7 @@ def menu_items():
     )
     builder.adjust(1)
     return builder.as_markup()
+
 
 def option_item():
     builder = InlineKeyboardBuilder()
@@ -431,6 +433,7 @@ def option_item():
     builder.adjust(1, 1, 1, 3)
     return builder.as_markup()
 
+
 def skip_photo():
     builder = InlineKeyboardBuilder()
     builder.button(
@@ -438,6 +441,7 @@ def skip_photo():
         callback_data="action:skip_photo",
     )
     return builder.as_markup()
+
 
 def buy_item_user(who, id_item):
     builder = InlineKeyboardBuilder()
@@ -447,6 +451,7 @@ def buy_item_user(who, id_item):
     )
     return builder.as_markup()
 
+
 def buy_item_admin(id_item):
     builder = InlineKeyboardBuilder()
     builder.button(
@@ -454,6 +459,7 @@ def buy_item_admin(id_item):
         callback_data=f"action:buy_item_admin:{id_item}",
     )
     return builder.as_markup()
+
 
 def buy_item_list_users(
     list_users: list,
@@ -485,4 +491,39 @@ def buy_item_list_users(
         callback_data=f"action:buy_item_turn_right:{page_num}",
     )
     builder.adjust(*[1 for _ in range(grid_size)], 2)
+    return builder.as_markup()
+
+
+def mail_list_users(
+    list_users: list,
+    size_one_page: int = 5,
+    page_num: int = 1,
+):
+    builder = InlineKeyboardBuilder()
+    grid_size = 0
+    for num, user in enumerate(list_users):
+        user: dict
+        if (size_one_page * page_num) - size_one_page <= num < size_one_page * page_num:
+            emoji = "🔘" if user["select"] else ""
+            builder.button(
+                text=get_button(
+                    "pattern_line_button_user_mail",
+                    throw_data={"fio": user["fio"], "emoji": emoji},
+                ),
+                callback_data=f"action:mail:{user['id']}",
+            )
+            grid_size += 1
+    builder.button(
+        text=get_button("end_choise_user_mail"),
+        callback_data="action:end_choise_user_mail",
+    )
+    builder.button(
+        text=get_button("arrow_left"),
+        callback_data=f"action:mail_turn_left:{page_num}",
+    )
+    builder.button(
+        text=get_button("arrow_right"),
+        callback_data=f"action:mail_turn_right:{page_num}",
+    )
+    builder.adjust(*[1 for _ in range(grid_size)], 1, 2)
     return builder.as_markup()

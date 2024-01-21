@@ -1,20 +1,20 @@
 import random
-from filter_message import Block, state_is_none
+from filter_message import state_is_none
 from handlers.start import command_start, process_fio
 from own_utils import (
     get_text,
 )
-from dispatcher import main_router
+from dispatcher import main_router, bot
 from init_db import flow_db
 import keyboard_markup
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, ReactionTypeEmoji, ReactionTypeCustomEmoji
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 from state_classes import Admin, Ban, FormReg, Viewer
 from tool_classes import User
 
 
-@main_router.message(Command(commands=["update"]), Block(pass_if=False))
+@main_router.message(Command(commands=["update"]))
 async def all_mes2(message: Message, state: FSMContext) -> None:
     id_user = message.from_user.id
     if not flow_db.user_exists(id_user):
@@ -33,6 +33,11 @@ async def all_mes2(message: Message, state: FSMContext) -> None:
     await message.answer(
         text=get_text(f"hi{n}"), reply_markup=keyboard_markup.main_menu_user()
     )
+
+
+@main_router.message(Command(commands=["test"]))
+async def test_mes_info(message: Message, state: FSMContext) -> None:
+    pass
 
 
 @main_router.message()

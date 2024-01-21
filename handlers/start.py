@@ -1,13 +1,12 @@
-from dispatcher import main_router, form_router
+from dispatcher import main_router
 from aiogram import F
-from filter_message import Block, state_is_none
 from own_utils import (
     count_page,
     get_current_date,
     get_text,
 )
 from dispatcher import bot
-from routers_bot import main_router, form_router
+from routers_bot import main_router
 from init_db import flow_db
 import keyboard_inline, keyboard_markup
 from aiogram.types import Message, CallbackQuery
@@ -25,12 +24,7 @@ from tool_classes import Item, User, Users
 # result: 'https://t.me/MyBot?start=Zm9v'
 
 
-@main_router.message(Block())
-async def chat_block(message: Message, state: FSMContext) -> None:
-    return
-
-
-@form_router.message(CommandStart(), Block(pass_if=False))
+@main_router.message(CommandStart())
 async def command_start(
     message: Message, state: FSMContext, command: CommandObject
 ) -> None:
@@ -91,7 +85,7 @@ async def command_start(
         return await state.set_state(Viewer.main)
 
 
-@form_router.message(FormReg.fio)
+@main_router.message(FormReg.fio)
 async def process_fio(message: Message, state: FSMContext) -> None:
     id_user = message.from_user.id
     photo = await message.from_user.get_profile_photos()
@@ -117,7 +111,7 @@ async def process_fio(message: Message, state: FSMContext) -> None:
     await message.answer(get_text("pending_wait"))
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     FormReg.pending_review, F.data.split(":") == ["action", "confirm_reg", "admin"]
 )
 async def process_confirm_reg_admin(query: CallbackQuery, state: FSMContext) -> None:
@@ -142,7 +136,7 @@ async def process_confirm_reg_admin(query: CallbackQuery, state: FSMContext) -> 
     )
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     FormReg.pending_review, F.data.split(":") == ["action", "confirm_reg", "user"]
 )
 async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> None:
@@ -167,7 +161,7 @@ async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> N
     )
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     FormReg.pending_review, F.data.split(":") == ["action", "confirm_reg", "viewer"]
 )
 async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> None:
@@ -192,7 +186,7 @@ async def process_confirm_reg_user(query: CallbackQuery, state: FSMContext) -> N
     )
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     F.data.split(":")[0] == "rule", F.data.split(":")[1] == "admin"
 )
 async def process_answer_on_request_admin(
@@ -212,7 +206,7 @@ async def process_answer_on_request_admin(
     )
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     F.data.split(":")[0] == "rule", F.data.split(":")[1] == "user"
 )
 async def process_answer_on_request_user(
@@ -232,7 +226,7 @@ async def process_answer_on_request_user(
     )
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     F.data.split(":")[0] == "rule", F.data.split(":")[1] == "viewer"
 )
 async def process_answer_on_request_user(
@@ -252,7 +246,7 @@ async def process_answer_on_request_user(
     )
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     F.data.split(":")[0] == "rule", F.data.split(":")[1] == "ban"
 )
 async def process_answer_on_request_ban(
@@ -280,7 +274,7 @@ async def process_answer_on_request_ban(
     )
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     F.data.split(":")[0] == "action", F.data.split(":")[1] == "repeat_fio"
 )
 async def process_repeat_fio(query: CallbackQuery, state: FSMContext) -> None:
@@ -294,7 +288,7 @@ async def process_repeat_fio(query: CallbackQuery, state: FSMContext) -> None:
     )
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     FormReg.pending_review,
     F.data.split(":")[0] == "action",
     F.data.split(":")[1] == "enter_repeat_fio",
@@ -308,7 +302,7 @@ async def process_enter_repeat_fio(query: CallbackQuery, state: FSMContext) -> N
     await state.set_state(FormReg.fio)
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     F.data.split(":")[0] == "action", F.data.split(":")[1] == "buy_item_user"
 )
 async def buy_item_user(query: CallbackQuery, state: FSMContext) -> None:
@@ -321,16 +315,16 @@ async def buy_item_user(query: CallbackQuery, state: FSMContext) -> None:
     user.balance_flow -= item.price
     item.quantity -= 1
     await query.message.delete()
-    text_purchase = get_text("item_purchased", throw_data={"item_name": item.name})
-    await query.message.answer(text=text_purchase)
+    await query.message.answer(text=get_text("item_purchased", throw_data={"item_name": item.name}))
+    ref_user_throw_name = f'<a href="https://t.me/@id{user.id}">{user.fio}</a>'
     await bot.send_message(
         chat_id=config.CHAT_ID,
         message_thread_id=config.THREAD_ID_HISTORY,
-        text=text_purchase,
+        text=get_text("item_purchased_for_admin", throw_data={"item_name": item.name, 'fio': ref_user_throw_name}),
     )
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     Admin.main,
     F.data.split(":")[0] == "action",
     F.data.split(":")[1] == "buy_item_admin",
@@ -400,7 +394,7 @@ async def buy_item_buy_for_selected_user(
         chat_id=config.CHAT_ID,
         message_thread_id=config.THREAD_ID_HISTORY,
         text=get_text(
-            "item_purchased",
+            "item_purchased_for_admin",
             throw_data={"item_name": item.name, "fio": ref_user_throw_name},
         ),
         disable_notification=True

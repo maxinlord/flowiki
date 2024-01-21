@@ -2,7 +2,7 @@ import logging
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram import Bot, Dispatcher
 import config
-from routers_bot import main_router, form_router
+from routers_bot import main_router
 
 
 
@@ -16,5 +16,4 @@ if not config.TOKEN:
 # init
 bot = Bot(token=config.TOKEN, parse_mode="HTML")
 dp = Dispatcher(storage=MemoryStorage())
-dp.include_router(form_router)
 dp.include_router(main_router)

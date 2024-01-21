@@ -151,6 +151,10 @@ class BotDB:
             key=lambda x: datetime.strptime(x["date"], "%d.%m.%Y"),
             reverse=True,
         )
+    def get_all_emoji(self):
+        query = """SELECT emoji FROM users WHERE rule = 'user'"""
+        result = self.cur.execute(query).fetchall()
+        return [i[0] for i in result if i[0]]
 
     def get_total_num_of_flowiki(self):
         query = """SELECT SUM(balance_flow) FROM users WHERE rule = 'user'"""

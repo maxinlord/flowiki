@@ -25,6 +25,8 @@ from handlers import (
     stat_onlines,
     shop_items,
     statistics, 
+    user_mailing,
+    set_emoji,
     any_message,
 )
 from own_utils import clean_notification, is_date_today, set_preset
@@ -32,7 +34,6 @@ import datetime
 
 from tool_classes import User
 
-# Установка часового пояса на Московское время
 
 d = {}
 func_days = {

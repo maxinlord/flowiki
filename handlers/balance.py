@@ -1,9 +1,6 @@
 from aiogram import F
-from filter_message import state_is_none
-from my_middleware import CounterMiddlewareMessage
-from own_utils import get_button, get_text, wrap
-from dispatcher import main_router, form_router, bot
-from init_db import flow_db
+from own_utils import get_button, get_text
+from dispatcher import main_router, bot
 import keyboard_inline
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -21,7 +18,7 @@ async def balance_flow(message: Message, state: FSMContext) -> None:
     )
 
 
-@form_router.callback_query(
+@main_router.callback_query(
     F.data.split(":")[0] == "action",
     F.data.split(":")[2] == "for_what",
 )

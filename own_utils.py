@@ -6,6 +6,7 @@ from init_db import flow_db
 import pandas as pd
 import re
 import datetime
+import emoji
 
 
 def get_current_date(format="%Y-%m-%d"):
@@ -310,8 +311,10 @@ def get_all_users_visit():
     text = "\n".join(
         get_text(
             "patter_line_stat_visit",
-            throw_data={"quantity_visit": flow_db.get_num_of_visits_user(user["id"]),
-                        'fio': user['fio']},
+            throw_data={
+                "quantity_visit": flow_db.get_num_of_visits_user(user["id"]),
+                "fio": user["fio"],
+            },
         )
         for user in users
     )
@@ -331,6 +334,27 @@ def delete_choose_reasons(reasons: list):
         flow_db.add_value(
             key="balance_flow", where="id", meaning=reason["id"], value=-reason["num"]
         )
+
+
+import unicodedata
+
+
+def is_human_emoji(emoji_str):
+    # Итерируем по каждому символу в строке эмодзи
+    for char in emoji_str:
+        # Проверяем, принадлежит ли категория символа к "Человеку" в Unicode
+        
+        to_ban = ["MAN", "WOMAN", "ADULT", "PERSON", "FEMALE", "MALE", 'BABY', 'GIRL', 'BOY', 'PALM']
+        for i in to_ban:
+            if i in unicodedata.name(char, "").upper():
+                return True
+        print(unicodedata.name(char, "").upper())
+    return False
+
+
+
+
+# Пример использования
 
 
 # data = get_data_users()

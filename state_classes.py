@@ -26,7 +26,11 @@ class Admin(StatesGroup):
     send_photo_item = State() 
     enter_num_for_edit_price = State()
     enter_num_for_edit_quantity = State()
+    send_message_for_mail = State()
+    select_user = State()
 
+class UserState(StatesGroup):
+    set_emoji = State()
 
 class Viewer(StatesGroup):
     main = State()

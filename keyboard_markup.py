@@ -38,6 +38,7 @@ def cancel():
 def menu_options():
     builder = ReplyKeyboardBuilder()
     builder.button(text=get_button("hand_reg"))
+    builder.button(text=get_button("mailing"))
     builder.button(text=get_button("notifications"))
     builder.button(text=get_button("display"))
     builder.button(text=get_button("presets"))
