@@ -17,7 +17,7 @@ from tool_classes import Reasons
 
 @main_router.message(F.text == get_button("history_transfer"))
 async def history_transfer(message: Message, state: FSMContext) -> None:
-    reasons = Reasons('5255757696')
+    reasons = Reasons(message.from_user.id)
     if not list(reasons):
         return await message.answer(get_text("history_not_exists"))
     q_page = count_page(5, len(reasons))
@@ -40,7 +40,7 @@ async def history_transfer(message: Message, state: FSMContext) -> None:
     F.data.split(":")[1].in_(["to_right", "to_left"]),
 )
 async def process_turn_right(query: CallbackQuery, state: FSMContext) -> None:
-    reasons = Reasons('5255757696')
+    reasons = Reasons(query.from_user.id)
     q_page = count_page(5, len(reasons))
     page = int(float(query.data.split(":")[-1]))
     if query.data.split(":")[1] == "to_right":

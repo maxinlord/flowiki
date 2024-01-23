@@ -66,6 +66,16 @@ class BotDB:
         )
         return self.conn.commit()
 
+    def add_new_message_reason(
+        self,
+        message_id
+    ):
+        self.cur.execute(
+            "INSERT INTO `message_history_reasons` (message_id) VALUES (?)",
+            (message_id,),
+        )
+        return self.conn.commit()
+
     def add_new_item(
         self,
         id_item: str,

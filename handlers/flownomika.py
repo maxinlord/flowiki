@@ -15,7 +15,7 @@ from aiogram.fsm.context import FSMContext
 import config
 
 from state_classes import Admin
-from tool_classes import Reason, User, Users
+from tool_classes import MessageReason, Reason, User, Users
 
 
 @main_router.message(Admin.main, F.text == get_button("flownomika"))
@@ -306,23 +306,9 @@ async def enter_reason_cancel(message: Message, state: FSMContext) -> None:
 async def enter_reason(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     text_reason = message.text.strip()
-    for user in data["d_users"]:
-        if not user["select"]:
-            continue
-        reason = Reason().create_reason
-        reason.date = get_current_date("%d.%m.%Y")
-        reason.id = user["id"]
-        reason.reason = text_reason
-        reason.owner_reason = message.from_user.id
-        reason.num = data["num"]
-        User(user["id"]).balance_flow += int(data["num"])
-    await message.answer(
-        get_text("reason_recorded"),
-        reply_markup=keyboard_markup.main_menu_admin(),
-    )
     user = User(message.from_user.id)
     ref_admin_throw_name = f'<a href="https://t.me/@id{user.id}">{user.fio}</a>'
-    await bot.send_message(
+    mess = await bot.send_message(
         chat_id=config.CHAT_ID,
         message_thread_id=config.THREAD_ID_HISTORY,
         text=get_text(
@@ -334,5 +320,24 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
             },
         ),
     )
+    for user in data["d_users"]:
+        if not user["select"]:
+            continue
+        reason = Reason().create_reason
+        reason.date = get_current_date("%d.%m.%Y")
+        reason.id = user["id"]
+        reason.reason = text_reason
+        reason.owner_reason = message.from_user.id
+        reason.num = data["num"]
+        reason.message_id = mess.message_id
+        User(user["id"]).balance_flow += int(data["num"])
+
+    await message.answer(
+        get_text("reason_recorded"),
+        reply_markup=keyboard_markup.main_menu_admin(),
+    )
+
+    message_reason = MessageReason().create_message_reason(mess.message_id)
+    message_reason.message_text = mess.text
     await state.set_data({})
     await state.set_state(Admin.main)

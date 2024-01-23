@@ -419,7 +419,7 @@ class User(Model):
         self.__update(name_value="date_reg", value=value)
 
     @property
-    def fio(self):
+    def fio(self) -> str:
         return self.__get("fio")
 
     @fio.setter
@@ -433,6 +433,7 @@ class User(Model):
     @emoji.setter
     def emoji(self, value):
         self.__update(name_value="emoji", value=value)
+
     @property
     def username(self):
         return self.__get("username")
@@ -476,15 +477,15 @@ class User(Model):
     @property
     def last_tap_date(self):
         if self.__get("last_tap_date"):
-            time = datetime.strptime(self.__get("last_tap_date"), '%d.%m.%Y, %H:%M:%S')
+            time = datetime.strptime(self.__get("last_tap_date"), "%d.%m.%Y, %H:%M:%S")
             was_online = datetime.now() - time
-            return str(was_online).split('.')[0]
+            return str(was_online).split(".")[0]
         return None
 
     @last_tap_date.setter
     def last_tap_date(self, value):
         self.__update(name_value="last_tap_date", value=value)
-    
+
     @property
     def last_tap_button(self):
         if self.__get("last_tap_button"):
@@ -572,7 +573,7 @@ class Users:
                 "rule": user["rule"],
             }
             for user in users
-            if user['id'].split(':')[0] != 'custom'
+            if user["id"].split(":")[0] != "custom"
         ]
         return edited_users_list
 
@@ -581,7 +582,7 @@ class Users:
         users = flow_db.get_all_line_key(
             key="rule, fio, id, balance_flow, emoji", order="balance_flow"
         )
-        users = [user for user in users if user['rule'] == 'user']
+        users = [user for user in users if user["rule"] == "user"]
         users = self.__display(users)
         return users
 
@@ -702,6 +703,14 @@ class Reason:
     def num(self, value):
         self.__update(name_value="num", value=value)
 
+    @property
+    def message_id(self):
+        return self.__get("message_id")
+
+    @message_id.setter
+    def message_id(self, value):
+        self.__update(name_value="message_id", value=value)
+
 
 class Item:
     def __init__(self, id_item) -> None:
@@ -797,7 +806,7 @@ class Item:
         img = qr.make_image(fill_color="#000000", back_color="#ffffff")
         file_name = f"item_{self.id_item}.png"
         if not os.path.exists(file_name):
-             img.save(file_name)    
+            img.save(file_name)
         return file_name
 
 
@@ -844,6 +853,43 @@ class Items:
 
     def __delitem__(self, key):
         self.__del_item(id_item=key)
+
+
+class MessageReason:
+    def __init__(self, message_id: int = None) -> None:
+        self.message_id = message_id
+
+    def __get(self, name_value):
+        return flow_db.get_value(
+            table="message_history_reasons",
+            key=name_value,
+            where="message_id",
+            meaning=self.message_id,
+        )
+
+    def __update(self, value, name_value):
+        return flow_db.update_value(
+            table="message_history_reasons",
+            key=name_value,
+            where="message_id",
+            meaning=self.message_id,
+            value=value,
+        )
+
+    def __create(self, message_id):
+        flow_db.add_new_message_reason(message_id=message_id)
+        return MessageReason(message_id)
+
+    def create_message_reason(self, message_id: int):
+        return self.__create(message_id)
+
+    @property
+    def message_text(self):
+        return self.__get("message_text")
+
+    @message_text.setter
+    def message_text(self, value):
+        self.__update(name_value="message_text", value=value)
 
 
 # print(Users().to_dict_for_mailing)

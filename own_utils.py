@@ -293,7 +293,7 @@ def set_preset(id_user, id_preset_to_activate):
 
 def get_all_reason():
     data = flow_db.get_all_line_key(
-        table="history_reasons", key="tag, id, reason, date, num"
+        table="history_reasons", key="tag, id, reason, date, num, message_id"
     )[::-1]
     update_data = []
     for reason in data:
@@ -343,15 +343,24 @@ def is_human_emoji(emoji_str):
     # Итерируем по каждому символу в строке эмодзи
     for char in emoji_str:
         # Проверяем, принадлежит ли категория символа к "Человеку" в Unicode
-        
-        to_ban = ["MAN", "WOMAN", "ADULT", "PERSON", "FEMALE", "MALE", 'BABY', 'GIRL', 'BOY', 'PALM']
+
+        to_ban = [
+            "MAN",
+            "WOMAN",
+            "ADULT",
+            "PERSON",
+            "FEMALE",
+            "MALE",
+            "BABY",
+            "GIRL",
+            "BOY",
+            "PALM",
+        ]
         for i in to_ban:
             if i in unicodedata.name(char, "").upper():
                 return True
         print(unicodedata.name(char, "").upper())
     return False
-
-
 
 
 # Пример использования
