@@ -20,7 +20,7 @@ async def notifications_admin(message: Message, state: FSMContext) -> None:
     await state.update_data(user_notifications=list(user.notification))
     await message.answer(
         text=get_text("menu_notification"),
-        reply_markup=keyboard_inline.menu_notifications(list(user.notification)),
+        reply_markup=keyboard_inline.menu_notifications(list(user.notification), user.id),
     )
 
 
@@ -58,7 +58,7 @@ async def back_to_menu_notifications(query: CallbackQuery, state: FSMContext) ->
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
         text=get_text("menu_notification"),
-        reply_markup=keyboard_inline.menu_notifications(data["user_notifications"]),
+        reply_markup=keyboard_inline.menu_notifications(data["user_notifications"], query.from_user.id),
     )
 
 
@@ -77,7 +77,7 @@ async def del_notify(query: CallbackQuery, state: FSMContext) -> None:
         text=get_text("menu_notification"),
         chat_id=query.from_user.id,
         message_id=query.message.message_id,
-        reply_markup=keyboard_inline.menu_notifications(user_notifications),
+        reply_markup=keyboard_inline.menu_notifications(user_notifications, query.from_user.id),
     )
 
 

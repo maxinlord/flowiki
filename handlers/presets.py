@@ -13,7 +13,7 @@ import keyboard_inline, keyboard_markup
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
 from state_classes import Admin
-from tool_classes import Preset, Users
+from tool_classes import Preset, User, Users
 
 
 @main_router.message(Admin.main, F.text == get_button("presets"))
@@ -34,9 +34,11 @@ async def presets_for_admin(message: Message, state: FSMContext) -> None:
 async def tap_on_preset(query: CallbackQuery, state: FSMContext) -> None:
     id_preset = query.data.split(":")[-1]
     await state.update_data(selected_preset=id_preset)
-    await bot.edit_message_reply_markup(
-        chat_id=query.from_user.id,
-        message_id=query.message.message_id,
+    preset = Preset(query.from_user.id)
+    preset.id_preset = id_preset
+    selected_users = '\n'.join([f'{n}. {User(i).fio}' for n, i in enumerate(preset.ids, start=1)])
+    await query.message.edit_text(
+        text=get_text('view_selected_users', throw_data={'users': selected_users}),
         reply_markup=keyboard_inline.set_or_del_preset(),
     )
 
@@ -53,9 +55,8 @@ async def process_set_preset(query: CallbackQuery, state: FSMContext) -> None:
     user_presets = activate_preset(user_presets, id_preset)
     await state.update_data(user_presets=user_presets)
     Preset(query.from_user.id).current_active_preset = id_preset
-    await bot.edit_message_reply_markup(
-        chat_id=query.from_user.id,
-        message_id=query.message.message_id,
+    await query.message.edit_text(
+        text=get_text('menu_presets'),
         reply_markup=keyboard_inline.menu_presets(user_presets),
     )
 
@@ -71,9 +72,8 @@ async def del_preset(query: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(user_presets=user_presets)
     preset = Preset(query.from_user.id)
     del preset[id_preset]
-    await bot.edit_message_reply_markup(
-        chat_id=query.from_user.id,
-        message_id=query.message.message_id,
+    await query.message.edit_text(
+        text=get_text('menu_presets'),
         reply_markup=keyboard_inline.menu_presets(user_presets),
     )
 
@@ -190,8 +190,21 @@ async def preset_end_choise_selects(query: CallbackQuery, state: FSMContext) -> 
     Admin.main, F.data.split(":")[0] == "action", F.data.split(":")[1] == "by_default"
 )
 async def process_set_preset_by_dflt(query: CallbackQuery, state: FSMContext) -> None:
+    preset = Preset(query.from_user.id)
     id_user = query.from_user.id
     d_users = Users(id_user).to_dict_for_keyboard
     data = await state.get_data()
     ids = [i["id"] for i in d_users]
-    await preset_end_choise_selects()
+    preset.create_preset
+    preset.name_preset = data["name_preset"]
+    preset.ids = ids
+    preset.is_active = 0
+
+    await bot.edit_message_reply_markup(
+        chat_id=preset.id_user, message_id=query.message.message_id, reply_markup=None
+    )
+    await bot.send_message(
+        chat_id=preset.id_user,
+        text=get_text("preset_created"),
+        reply_markup=keyboard_markup.menu_options(),
+    )

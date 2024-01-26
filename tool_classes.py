@@ -7,6 +7,8 @@ import string
 from init_db import flow_db
 import qrcode
 
+from own_utils import get_text, weekday_tr
+
 
 class Model:
     def __init__(self, id_user) -> None:
@@ -71,16 +73,6 @@ class ModelTwodd:
             d[key] = str(d[key]).replace(sign_to_replace2, ",")
         return d
 
-
-weekday_tr = {
-    "monday": "Понедельник",
-    "tuesday": "Вторник",
-    "wednesday": "Среда",
-    "thursday": "Четверг",
-    "friday": "Пятница",
-    "saturday": "Суббота",
-    "sunday": "Воскресенье",
-}
 
 
 class Notification(ModelTwodd):
@@ -322,7 +314,7 @@ class Preset(ModelTwodd):
 
     @property
     def name_preset(self):
-        return self.__get("name_preset")
+        return get_text('was_setting_base_preset') if self.__get("name_preset") == 'None' else self.__get("name_preset")
 
     @name_preset.setter
     def name_preset(self, value):

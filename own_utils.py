@@ -8,6 +8,16 @@ import re
 import datetime
 import emoji
 
+weekday_tr = {
+    "monday": "Понедельник",
+    "tuesday": "Вторник",
+    "wednesday": "Среда",
+    "thursday": "Четверг",
+    "friday": "Пятница",
+    "saturday": "Суббота",
+    "sunday": "Воскресенье",
+}
+
 
 def get_current_date(format="%Y-%m-%d"):
     """
@@ -218,6 +228,8 @@ def extract_date(text: str) -> str:  # sourcery skip: use-named-expression
         key_weekday = date.weekday()
         return date.strftime("%d.%m.%Y"), weekday[key_weekday]
     return ""
+
+# print(extract_date('hfgf') or "rtrtr")
 
 
 def extract_time(text: str) -> str:  # sourcery skip: use-named-expression

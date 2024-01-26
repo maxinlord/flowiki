@@ -1,6 +1,6 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from own_utils import get_button, get_table_name
-from tool_classes import Items
+from own_utils import get_button, get_table_name, get_text, weekday_tr
+from tool_classes import Items, Preset
 
 
 def keyboard_for_rule(id_user):
@@ -243,12 +243,20 @@ def set_display(select: str = "-"):
     return builder.as_markup()
 
 
-def menu_notifications(user_notifications):
+def menu_notifications(user_notifications, id_user):
+    type_notify = {
+        'once':get_text('type_notify_once'),
+        'remind':get_text('type_notify_remind')
+    }
     builder = InlineKeyboardBuilder()
     for notify in user_notifications:
+        preset = Preset(id_user)
+        preset.id_preset = notify['id_preset']
+        type_n = type_notify[notify['type_notify']]
+        time = ' '.join(notify["time"].split()[::-1]) if notify['type_notify'] == 'once' else notify['time']
         builder.button(
             text=get_button(
-                "pattern_notify", throw_data={"time_notify": notify["time"]}
+                "pattern_notify", throw_data={"type_notify": type_n, "time_notify": time, 'weekday': weekday_tr[notify['weekday']], 'preset': preset.name_preset}
             ),
             callback_data=f"action:tap_on_notify:{notify['id_notify']}",
         )

@@ -7,6 +7,7 @@ from own_utils import (
     update_dict_users,
     view_selected_users,
     wrap,
+    extract_date
 )
 from dispatcher import main_router, bot
 import keyboard_inline, keyboard_markup
@@ -306,6 +307,8 @@ async def enter_reason_cancel(message: Message, state: FSMContext) -> None:
 async def enter_reason(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     text_reason = message.text.strip()
+    date = extract_date(text_reason)
+    text_reason = text_reason.replace(date[0], '').strip() if date else text_reason
     user = User(message.from_user.id)
     ref_admin_throw_name = f'<a href="https://t.me/@id{user.id}">{user.fio}</a>'
     mess = await bot.send_message(
@@ -320,11 +323,12 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
             },
         ),
     )
+    date = date or get_current_date("%d.%m.%Y")
     for user in data["d_users"]:
         if not user["select"]:
             continue
         reason = Reason().create_reason
-        reason.date = get_current_date("%d.%m.%Y")
+        reason.date = date[0]
         reason.id = user["id"]
         reason.reason = text_reason
         reason.owner_reason = message.from_user.id

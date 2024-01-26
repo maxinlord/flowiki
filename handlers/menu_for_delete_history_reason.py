@@ -94,14 +94,14 @@ async def del_reason(query: CallbackQuery, state: FSMContext) -> None:
         reply_markup=None,
     )
     for reason in choose_reasons:
-        message_reason = MessageReason(reason['message_id'])
-        text: str = message_reason.message_text
-        fio = User(reason['id']).fio
-        fio_to_replace = get_text('fio_to_replace', throw_data={'fio': fio})
-        fio_list = fio.split()
-        [text:=text.replace(i, 'name') for i in fio_list]
-        text = text.replace('name name', fio_to_replace)
-        message_reason.message_text = text
         with contextlib.suppress(Exception):
+            message_reason = MessageReason(reason['message_id'])
+            text: str = message_reason.message_text
+            fio = User(reason['id']).fio
+            fio_to_replace = get_text('fio_to_replace', throw_data={'fio': fio})
+            fio_list = fio.split()
+            [text:=text.replace(i, 'name') for i in fio_list]
+            text = text.replace('name name', fio_to_replace)
+            message_reason.message_text = text
             await bot.edit_message_text(chat_id=config.CHAT_ID, message_id=message_reason.message_id, text=message_reason.message_text)
     
