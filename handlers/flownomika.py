@@ -323,12 +323,12 @@ async def enter_reason(message: Message, state: FSMContext) -> None:
             },
         ),
     )
-    date = date or get_current_date("%d.%m.%Y")
+    date = date[0] if date else get_current_date("%d.%m.%Y")
     for user in data["d_users"]:
         if not user["select"]:
             continue
         reason = Reason().create_reason
-        reason.date = date[0]
+        reason.date = date
         reason.id = user["id"]
         reason.reason = text_reason
         reason.owner_reason = message.from_user.id

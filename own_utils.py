@@ -219,7 +219,7 @@ weekday = {
 }
 
 
-def extract_date(text: str) -> str:  # sourcery skip: use-named-expression
+def extract_date(text: str):  # sourcery skip: use-named-expression
     date_regex = r"\d{1,2}[./-]\d{1,2}[./-]\d{2,4}"
     match = re.search(date_regex, text)
     if match:
