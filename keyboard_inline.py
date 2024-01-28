@@ -389,26 +389,42 @@ def menu_reason(reasons, page_num: int = 1, size_one_page: int = 9):
 "{date} {sername} {part_of_reason}"
 
 
-def menu_items():
+def menu_items(size_one_page: int = 5,
+    page_num: int = 1,):
     builder = InlineKeyboardBuilder()
     items = Items()
-    for item in items:
+    grid_size = []
+    for num, item in enumerate(items):
+        if (size_one_page * page_num) - size_one_page <= num < size_one_page * page_num:
+            builder.button(
+                text=get_button(
+                    "pattern_button_inline_item",
+                    throw_data={
+                        "name": item["name"], 
+                        'price':item['price']
+                    },
+                ),
+                callback_data=f"action:tap_on_item:{item['id']}",
+            )
+            grid_size.append(1)
+    if len(items) > size_one_page:
         builder.button(
-            text=get_button(
-                "pattern_button_inline_item",
-                throw_data={
-                    "name": item["name"],
-                },
-            ),
-            callback_data=f"action:tap_on_item:{item['id']}",
+            text=get_button("arrow_left"),
+            callback_data=f"action:item_turn_left:{page_num}",
         )
+        builder.button(
+            text=get_button("arrow_right"),
+            callback_data=f"action:item_turn_right:{page_num}",
+        )
+        grid_size.append(2)
     builder.button(
         text=get_button(
             "add_item",
         ),
         callback_data="action:add_item",
     )
-    builder.adjust(1)
+    builder.adjust(*grid_size, 1)        
+    
     return builder.as_markup()
 
 

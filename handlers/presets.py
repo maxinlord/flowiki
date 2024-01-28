@@ -192,7 +192,7 @@ async def preset_end_choise_selects(query: CallbackQuery, state: FSMContext) -> 
 async def process_set_preset_by_dflt(query: CallbackQuery, state: FSMContext) -> None:
     preset = Preset(query.from_user.id)
     id_user = query.from_user.id
-    d_users = Users(id_user).to_dict_for_keyboard
+    d_users = Users(id_user).to_dict_without_display
     data = await state.get_data()
     ids = [i["id"] for i in d_users]
     preset.create_preset

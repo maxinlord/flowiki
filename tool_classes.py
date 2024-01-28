@@ -580,7 +580,7 @@ class Users:
 
 
 class Reasons(Model):
-    def __init__(self, id_user) -> None:
+    def __init__(self, id_user=None) -> None:
         super().__init__(id_user)
 
     def __get_all_reasons(self):
@@ -837,7 +837,9 @@ class Items:
                 key="id, name, photo, description, price, old_price", table="items"
             )
         )
-
+    
+    def __len__(self):
+        return len(flow_db.get_all_line_key(key="id", table="items"))
     def __getitem__(self, item):
         if flow_db.item_exists(item):
             return Item(item)

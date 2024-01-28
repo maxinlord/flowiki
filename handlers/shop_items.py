@@ -20,6 +20,7 @@ from tool_classes import Item, Items, Reason, User, Users
 
 @main_router.message(Admin.main, F.text == get_button("items"))
 async def items_menu(message: Message, state: FSMContext) -> None:
+    await state.update_data(page=1)
     await message.answer(
         text=get_text("menu_items"),
         reply_markup=keyboard_inline.menu_items(),
@@ -81,7 +82,7 @@ async def back_to_menu_item(query: CallbackQuery, state: FSMContext) -> None:
             chat_id=query.from_user.id,
             message_id=query.message.message_id,
             text=get_text("menu_items"),
-            reply_markup=keyboard_inline.menu_items(),
+            reply_markup=keyboard_inline.menu_items(page_num=data['page']),
         )
     await bot.delete_message(
         chat_id=query.from_user.id,
@@ -90,7 +91,7 @@ async def back_to_menu_item(query: CallbackQuery, state: FSMContext) -> None:
     await bot.send_message(
         chat_id=query.from_user.id,
         text=get_text("menu_items"),
-        reply_markup=keyboard_inline.menu_items(),
+        reply_markup=keyboard_inline.menu_items(page_num=data['page']),
     )
 
 
@@ -101,7 +102,7 @@ async def back_to_menu_item(query: CallbackQuery, state: FSMContext) -> None:
 )
 async def del_item(query: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
-    del Items()[data['selected_item']]
+    del Items()[data["selected_item"]]
     await query.message.delete()
     await items_menu(query.message, state)
 
@@ -335,10 +336,7 @@ async def end_create_item(query: CallbackQuery, state: FSMContext) -> None:
     item.description = data["description_item"]
     item.price = data["price_item"]
     item.quantity = data["quantity_item"]
-    await query.message.edit_text(
-        text=get_text("item_created"),
-        reply_markup=None
-    )
+    await query.message.edit_text(text=get_text("item_created"), reply_markup=None)
     await state.set_state(Admin.main)
 
 
@@ -356,3 +354,20 @@ async def get_photo_item(message: Message, state: FSMContext) -> None:
         text=get_text("item_created"),
     )
     await state.set_state(Admin.main)
+
+
+@main_router.callback_query(
+    Admin.main,
+    F.data.split(":")[0] == "action",
+    F.data.split(":")[1].in_(["item_turn_left", "item_turn_right"]),
+)
+async def item_turn(query: CallbackQuery, state: FSMContext) -> None:
+    items = Items()
+    q_page = count_page(5, len(items))
+    page = int(float(query.data.split(":")[-1]))
+    if query.data.split(":")[1] == "item_turn_right":
+        page = page + 1 if page < q_page else 1
+    else:
+        page = page - 1 if page > 1 else q_page
+    await state.update_data(page=page)
+    await query.message.edit_reply_markup(reply_markup=keyboard_inline.menu_items(page_num=page))
